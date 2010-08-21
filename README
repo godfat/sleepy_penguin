@@ -1,0 +1,55 @@
+= sleepy_penguin - event extensions for Linux
+
+sleepy_penguin provides access to newer, Linux-only system calls to wait
+on events from traditionally non-I/O sources.  Bindings to the eventfd,
+signalfd, timerfd, and epoll interfaces are provided.
+
+== Features
+
+* Thread-safe blocking operations under both Ruby 1.8 and 1.9.
+
+* IO-like objects are backwards-compatible with IO.select.
+
+== Install
+
+If you're using a packaged Ruby distribution, make sure you have a C
+compiler and the matching Ruby development libraries and headers.
+
+If you use RubyGems:
+
+    gem install sleepy_penguin
+
+Otherwise grab the latest tarball from:
+
+http://bogomips.org/sleepy_penguin/files/
+
+Unpack it, and run "ruby setup.rb"
+
+== Development
+
+You can get the latest source via git from the following locations:
+
+  git://git.bogomips.org/sleepy_penguin.git
+  git://repo.or.cz/sleepy_penguin.git (mirror)
+
+You may browse the code from the web and download the latest snapshot
+tarballs here:
+
+* http://git.bogomips.org/cgit/sleepy_penguin.git (cgit)
+* http://repo.or.cz/w/sleepy_penguin.git (gitweb)
+
+Inline patches (from "git format-patch") to the mailing list are
+preferred because they allow code review and comments in the reply to
+the patch.
+
+We will adhere to mostly the same conventions for patch submissions as
+git itself.  See the Documentation/SubmittingPatches document
+distributed with git on on patch submission guidelines to follow.  Just
+don't email the git mailing list or maintainer with sleepy_penguin patches.
+
+== Contact
+
+All feedback (bug reports, user/development discussion, patches, pull
+requests) go to the mailing list: mailto:sleepy.penguin@librelist.com
+
+* http://bogomips.org/sleepy_penguin/archives/
