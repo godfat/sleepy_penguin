@@ -6,8 +6,15 @@ void sleepy_penguin_init_timerfd(void);
 #  define sleepy_penguin_init_timerfd() if(0)
 #endif
 
+#ifdef HAVE_SYS_EVENTFD_H
+void sleepy_penguin_init_eventfd(void);
+#else
+#  define sleepy_penguin_init_eventfd() if(0)
+#endif
+
 void Init_sleepy_penguin_ext(void)
 {
 	sleepy_penguin_init_epoll();
 	sleepy_penguin_init_timerfd();
+	sleepy_penguin_init_eventfd();
 }
