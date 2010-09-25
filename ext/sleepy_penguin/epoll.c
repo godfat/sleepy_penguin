@@ -362,9 +362,9 @@ static VALUE add(VALUE self, VALUE io, VALUE flags)
 }
 
 /* adds +io+ object the +self+ with +flags+ */
-static VALUE del(VALUE self, VALUE io, VALUE flags)
+static VALUE del(VALUE self, VALUE io)
 {
-	return ctl(self, io, flags, EPOLL_CTL_DEL);
+	return ctl(self, io, INT2NUM(0), EPOLL_CTL_DEL);
 }
 
 static VALUE mod(VALUE self, VALUE io, VALUE flags)
@@ -447,7 +447,7 @@ void sleepy_penguin_init_epoll(void)
 	rb_define_method(cEpoll, "closed?", epclosed, 0);
 	rb_define_method(cEpoll, "add", add, 2);
 	rb_define_method(cEpoll, "mod", mod, 2);
-	rb_define_method(cEpoll, "del", del, 2);
+	rb_define_method(cEpoll, "del", del, 1);
 	rb_define_method(cEpoll, "set", set, 2);
 	rb_define_method(cEpoll, "wait", epwait, -1);
 	rb_define_const(cEpoll, "CLOEXEC", INT2NUM(EPOLL_CLOEXEC));

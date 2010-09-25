@@ -193,6 +193,14 @@ class TestEpoll < Test::Unit::TestCase
     assert(diff >= 0.075, "#{diff} < 0.100s")
   end
 
+  def test_del
+    assert_raises(Errno::ENOENT) { @ep.del(@rd) }
+    assert_nothing_raised do
+      @ep.add(@rd, Epoll::IN)
+      @ep.del(@rd)
+    end
+  end
+
   def test_wait_read
     @ep.add(@rd, Epoll::IN)
     assert_equal 0, @ep.wait(nil, 0) { |flags,obj| assert false }
