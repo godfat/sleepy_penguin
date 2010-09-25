@@ -9,6 +9,16 @@ static const int step = 64; /* unlikely to grow unless you're huge */
 static VALUE cEpoll_IO;
 static ID id_for_fd;
 
+static void pack_event_data(struct epoll_event *event, VALUE obj)
+{
+	event->data.ptr = (void *)obj;
+}
+
+static VALUE unpack_event_data(struct epoll_event *event)
+{
+	return (VALUE)event->data.ptr;
+}
+
 struct rb_epoll {
 	int fd;
 	int timeout;
@@ -142,7 +152,7 @@ static VALUE ctl(VALUE self, VALUE io, VALUE flags, int op)
 	int rv;
 
 	event.events = NUM2UINT(flags);
-	event.data.ptr = (void *)io;
+	pack_event_data(&event, io);
 
 	rv = epoll_ctl(ep->fd, op, fd, &event);
 	if (rv == -1) {
@@ -167,7 +177,7 @@ static VALUE set(VALUE self, VALUE io, VALUE flags)
 	int rv;
 
 	event.events = NUM2UINT(flags);
-	event.data.ptr = (void *)io;
+	pack_event_data(&event, io);
 
 	rv = epoll_ctl(ep->fd, EPOLL_CTL_MOD, fd, &event);
 	if (rv == -1) {
@@ -194,7 +204,7 @@ static VALUE epwait_result(struct rb_epoll *ep, int n)
 
 	for (i = n; --i >= 0; epoll_event++) {
 		obj_events = UINT2NUM(epoll_event->events);
-		obj = (VALUE)(epoll_event->data.ptr);
+		obj = unpack_event_data(epoll_event);
 		rb_yield_values(2, obj_events, obj);
 	}
 
