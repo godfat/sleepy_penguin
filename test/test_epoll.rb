@@ -13,6 +13,33 @@ class TestEpoll < Test::Unit::TestCase
     @ep = Epoll.new
   end
 
+  def test_tcp_connect_nonblock_edge
+    epflags = Epoll::OUT | Epoll::ET
+    host = '127.0.0.1'
+    srv = TCPServer.new(host, 0)
+    port = srv.addr[1]
+    addr = Socket.pack_sockaddr_in(port, host)
+    sock = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM, 0)
+    assert_raises(Errno::EINPROGRESS) { sock.connect_nonblock(addr) }
+    IO.select(nil, [ sock ], [sock ])
+    @ep.add(sock, epflags)
+    tmp = []
+    @ep.wait(1) { |flags, obj| tmp << [ flags, obj ] }
+    assert_equal [ [Epoll::OUT,  sock] ], tmp
+  end
+
+  def test_tcp_connect_edge
+    epflags = Epoll::OUT | Epoll::ET
+    host = '127.0.0.1'
+    srv = TCPServer.new(host, 0)
+    port = srv.addr[1]
+    sock = TCPSocket.new(host, port)
+    @ep.add(sock, epflags)
+    tmp = []
+    @ep.wait(1) { |flags, obj| tmp << [ flags, obj ] }
+    assert_equal [ [Epoll::OUT,  sock] ], tmp
+  end
+
   def teardown
     assert_nothing_raised do
       @rd.close unless @rd.closed?
