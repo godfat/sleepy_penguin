@@ -21,6 +21,12 @@ static void rb_memerror(void)
 	abort();
 }
 #endif
+#ifndef HAVE_RB_IO_CLOSE
+static VALUE rb_io_close(VALUE io)
+{
+	return rb_funcall(io, rb_intern("close"), 0);
+}
+#endif
 
 static st_table *active;
 static const int step = 64; /* unlikely to grow unless you're huge */
