@@ -7,10 +7,15 @@ require 'sleepy_penguin'
 
 class TestEpoll < Test::Unit::TestCase
   include SleepyPenguin
+  RBX = defined?(RUBY_ENGINE) && (RUBY_ENGINE == 'rbx')
 
   def setup
     @rd, @wr = IO.pipe
     @ep = Epoll.new
+  end
+
+  def teardown
+    [ @rd, @wr, @ep ].each { |io| io.close unless io.closed? }
   end
 
   def test_cross_thread
@@ -138,7 +143,7 @@ class TestEpoll < Test::Unit::TestCase
     assert((time[:EP] - time[:USR1]) < 0.15)
     ensure
       trap(:USR1, 'DEFAULT')
-  end
+  end unless RBX
 
   def test_close
     @ep.add @rd, Epoll::IN
@@ -191,7 +196,7 @@ class TestEpoll < Test::Unit::TestCase
   def test_gc
     assert_nothing_raised { 4096.times { Epoll.new } }
     assert ! @ep.closed?
-  end
+  end unless RBX
 
   def test_gc_to_io
     assert_nothing_raised do
@@ -201,7 +206,7 @@ class TestEpoll < Test::Unit::TestCase
       end
     end
     assert ! @ep.closed?
-  end
+  end unless RBX
 
   def test_clone
     tmp = []
@@ -210,6 +215,7 @@ class TestEpoll < Test::Unit::TestCase
     clone.add @wr, Epoll::OUT
     @ep.wait(nil, 0) { |flags, obj| tmp << [ flags, obj ] }
     assert_equal([[Epoll::OUT, @wr]], tmp)
+    assert_nothing_raised { clone.close }
   end
 
   def test_dup
@@ -219,6 +225,7 @@ class TestEpoll < Test::Unit::TestCase
     clone.add @wr, Epoll::OUT
     @ep.wait(nil, 0) { |flags, obj| tmp << [ flags, obj ] }
     assert_equal([[Epoll::OUT, @wr]], tmp)
+    assert_nothing_raised { clone.close }
   end
 
   def test_set_idempotency
