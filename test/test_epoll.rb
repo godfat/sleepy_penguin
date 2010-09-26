@@ -13,6 +13,16 @@ class TestEpoll < Test::Unit::TestCase
     @ep = Epoll.new
   end
 
+  def test_cross_thread
+    tmp = []
+    Thread.new { sleep 0.100; @ep.add(@wr, Epoll::OUT) }
+    t0 = Time.now
+    @ep.wait { |flags,obj| tmp << [ flags, obj ] }
+    elapsed = Time.now - t0
+    assert elapsed >= 0.100
+    assert_equal [[Epoll::OUT, @wr]], tmp
+  end
+
   def test_fork_safe
     tmp = []
     @ep.add @rd, Epoll::IN
