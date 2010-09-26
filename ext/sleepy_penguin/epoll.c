@@ -1,6 +1,11 @@
 #include "sleepy_penguin.h"
 #include <sys/epoll.h>
 #include <pthread.h>
+#ifdef HAVE_RUBY_ST_H
+#  include <ruby/st.h>
+#else
+#  include <st.h>
+#endif
 
 #ifndef EPOLL_CLOEXEC
 #  define EPOLL_CLOEXEC (int)(02000000)
