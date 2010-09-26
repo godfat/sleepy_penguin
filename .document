@@ -7,4 +7,3 @@ lib
 ext/sleepy_penguin/init.c
 ext/sleepy_penguin/eventfd.c
 ext/sleepy_penguin/timerfd.c
-TODO
