@@ -13,6 +13,38 @@ class TestEpoll < Test::Unit::TestCase
     @ep = Epoll.new
   end
 
+  def test_fork_safe
+    tmp = []
+    @ep.add @rd, Epoll::IN
+    pid = fork do
+      @ep.wait(nil, 100) { |flags,obj| tmp << [ flags, obj ] }
+      exit!(tmp.empty?)
+    end
+    @wr.syswrite "HI"
+    _, status = Process.waitpid2(pid)
+    assert status.success?
+    @ep.wait(nil, 0) { |flags,obj| tmp << [ flags, obj ] }
+    assert_equal [[Epoll::IN, @rd]], tmp
+  end
+
+  def test_after_fork_usability
+    fork { @ep.add(@rd, Epoll::IN); exit!(0) }
+    fork { @ep.set(@rd, Epoll::IN); exit!(0) }
+    fork { @ep.to_io; exit!(0) }
+    fork { @ep.close; exit!(0) }
+    fork { @ep.closed?; exit!(0) }
+    fork {
+      begin
+        @ep.del(@rd)
+      rescue Errno::ENOENT
+        exit!(0)
+      end
+      exit!(1)
+    }
+    res = Process.waitall
+    res.each { |(pid,status)| assert status.success? }
+  end
+
   def test_tcp_connect_nonblock_edge
     epflags = Epoll::OUT | Epoll::ET
     host = '127.0.0.1'
