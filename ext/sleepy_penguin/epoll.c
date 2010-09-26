@@ -16,7 +16,7 @@
 #ifndef HAVE_RB_MEMERROR
 static void rb_memerror(void)
 {
-	static const char e[] = "[FATAL] failed to allocate memory\n"
+	static const char e[] = "[FATAL] failed to allocate memory\n";
 	write(2, e, sizeof(e) - 1);
 	abort();
 }
