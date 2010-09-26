@@ -31,6 +31,8 @@ class TestEpoll < Test::Unit::TestCase
     fork { @ep.add(@rd, Epoll::IN); exit!(0) }
     fork { @ep.set(@rd, Epoll::IN); exit!(0) }
     fork { @ep.to_io; exit!(0) }
+    fork { @ep.dup; exit!(0) }
+    fork { @ep.clone; exit!(0) }
     fork { @ep.close; exit!(0) }
     fork { @ep.closed?; exit!(0) }
     fork {
@@ -202,7 +204,7 @@ class TestEpoll < Test::Unit::TestCase
 
   def test_dup
     tmp = []
-    clone = @ep.clone
+    clone = @ep.dup
     assert @ep.to_io.fileno != clone.to_io.fileno
     clone.add @wr, Epoll::OUT
     @ep.wait(nil, 0) { |flags, obj| tmp << [ flags, obj ] }

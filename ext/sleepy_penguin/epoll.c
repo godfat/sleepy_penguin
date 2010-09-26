@@ -112,6 +112,7 @@ static VALUE alloc(VALUE klass)
 	ep->fd = -1;
 	ep->io = Qnil;
 	ep->capa = step;
+	ep->flags = EPOLL_CLOEXEC;
 	ep->events = xmalloc(sizeof(struct epoll_event) * ep->capa);
 
 	return self;
@@ -448,6 +449,19 @@ static VALUE epclosed(VALUE self)
 	return ep->fd == -1 ? Qtrue : Qfalse;
 }
 
+static int cloexec_dup(struct rb_epoll *ep)
+{
+#ifdef F_DUPFD_CLOEXEC
+	int flags = ep->flags & EPOLL_CLOEXEC ? F_DUPFD_CLOEXEC : F_DUPFD;
+	int fd = fcntl(ep->fd, flags, 0);
+#else
+	int fd = dup(ep->fd);
+	if (fd >= 0)
+		(void)fcntl(fd, F_SETFD, FD_CLOEXEC);
+#endif
+	return fd;
+}
+
 static VALUE init_copy(VALUE copy, VALUE orig)
 {
 	struct rb_epoll *a = ep_get(orig);
@@ -457,11 +471,12 @@ static VALUE init_copy(VALUE copy, VALUE orig)
 	       NIL_P(b->io) && "Ruby broken?");
 
 	ep_check(a);
-	b->fd = dup(a->fd);
+	b->flags = a->flags;
+	b->fd = cloexec_dup(a);
 	if (b->fd == -1) {
 		if (errno == ENFILE || errno == EMFILE) {
 			rb_gc();
-			b->fd = dup(a->fd);
+			b->fd = cloexec_dup(a);
 		}
 		if (b->fd == -1)
 			rb_sys_fail("dup");
