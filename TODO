@@ -1,0 +1,3 @@
+* SignalFD interface
+
+* Inotify? Several libraries already support it, but it fits this project, too
