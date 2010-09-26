@@ -57,22 +57,15 @@ static struct rb_epoll *ep_get(VALUE self)
  * Don't worry about thread-safety since current Ruby 1.9 won't
  * call this without GVL.
  */
-static int my_epoll_create1(int flags)
+static int epoll_create1(int flags)
 {
-	int set_flags;
 	int fd = epoll_create(1024); /* size ignored since 2.6.8 */
 
 	if (fd < 0 || flags == 0)
 		return fd;
 
-	if (flags & EPOLL_CLOEXEC) {
-		set_flags = fcntl(fd, F_GETFD);
-		if (set_flags == -1)
-			goto err;
-		set_flags = fcntl(fd, F_SETFD, set_flags | FD_CLOEXEC);
-		if (set_flags == -1)
-			goto err;
-	}
+	if ((flags & EPOLL_CLOEXEC) && (fcntl(fd, F_SETFD, FD_CLOEXEC) == -1))
+		goto err;
 	return fd;
 err:
 	{
@@ -82,7 +75,6 @@ err:
 		return -1;
 	}
 }
-#define epoll_create1(flags) my_epoll_create1(flags)
 #endif
 
 static void gcmark(void *ptr)
