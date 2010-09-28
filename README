@@ -1,4 +1,4 @@
-= sleepy_penguin - Ruby I/O events for Linux
+= sleepy_penguin - Linux I/O events for Ruby
 
 sleepy_penguin provides access to newer, Linux-only system calls to wait
 on events from traditionally non-I/O sources.  Bindings to the eventfd,
