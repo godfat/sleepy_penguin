@@ -10,7 +10,7 @@ Gem::Specification.new do |s|
   s.homepage = 'http://bogomips.org/sleepy_penguin/'
   s.authors = ["#{name} hackers"]
   s.date = Time.now.utc.strftime('%Y-%m-%d')
-  s.description = description
+  s.description = readme_description
   s.email = %q{sleepy.penguin@librelist.com}
   s.extra_rdoc_files = extra_rdoc_files(manifest)
   s.files = manifest
