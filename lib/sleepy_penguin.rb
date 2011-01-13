@@ -1,7 +1,7 @@
 # -*- encoding: binary -*-
 module SleepyPenguin
 
-  # the version of sleepy_penguin, currently 1.1.0
-  SLEEPY_PENGUIN_VERSION = '1.1.0'
+  # the version of sleepy_penguin, currently 1.1.1
+  SLEEPY_PENGUIN_VERSION = '1.1.1'
 end
 require 'sleepy_penguin_ext'
