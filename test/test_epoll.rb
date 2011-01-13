@@ -14,10 +14,6 @@ class TestEpoll < Test::Unit::TestCase
     @ep = Epoll.new
   end
 
-  def teardown
-    [ @rd, @wr, @ep ].each { |io| io.close unless io.closed? }
-  end
-
   def test_cross_thread
     tmp = []
     Thread.new { sleep 0.100; @ep.add(@wr, Epoll::OUT) }
