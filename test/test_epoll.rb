@@ -313,4 +313,12 @@ class TestEpoll < Test::Unit::TestCase
     io = Epoll.new.to_io
     assert((io.fcntl(Fcntl::F_GETFD) & Fcntl::FD_CLOEXEC) == Fcntl::FD_CLOEXEC)
   end
+
+  def test_delete
+    assert_nil @ep.delete(@rd)
+    assert_nil @ep.delete(@wr)
+    assert_nothing_raised { @ep.add @rd, Epoll::IN }
+    assert_equal 0, @ep.delete(@rd)
+    assert_nil @ep.delete(@rd)
+  end
 end

@@ -206,6 +206,8 @@ static VALUE ctl(VALUE self, VALUE io, VALUE flags, int op)
 }
 
 /*
+ * used to avoid exceptions when your app is too lazy to check
+ * what state a descriptor is in
  */
 static VALUE set(VALUE self, VALUE io, VALUE flags)
 {
@@ -229,6 +231,29 @@ static VALUE set(VALUE self, VALUE io, VALUE flags)
 		rb_sys_fail("epoll_ctl - mod");
 	}
 
+	return INT2NUM(rv);
+}
+
+/*
+ * Deletes an +io+ from an epoll set, but returns nil
+ * on ENOENT instead of raising an error.  This is useful
+ * for apps that do not care to track the status of an
+ * epoll object itself.
+ */
+static VALUE delete(VALUE self, VALUE io)
+{
+	struct rb_epoll *ep = ep_get(self);
+	int fd = my_fileno(io);
+	int rv;
+
+	ep_check(ep);
+	rv = epoll_ctl(ep->fd, EPOLL_CTL_DEL, fd, NULL);
+	if (rv == -1) {
+		if (errno != ENOENT)
+			rb_sys_fail("epoll_ctl - del");
+		errno = 0;
+		return Qnil;
+	}
 	return INT2NUM(rv);
 }
 
@@ -548,6 +573,7 @@ void sleepy_penguin_init_epoll(void)
 	rb_define_method(cEpoll, "add", add, 2);
 	rb_define_method(cEpoll, "mod", mod, 2);
 	rb_define_method(cEpoll, "del", del, 1);
+	rb_define_method(cEpoll, "delete", delete, 1);
 	rb_define_method(cEpoll, "set", set, 2);
 	rb_define_method(cEpoll, "wait", epwait, -1);
 	rb_define_const(cEpoll, "CLOEXEC", INT2NUM(EPOLL_CLOEXEC));
