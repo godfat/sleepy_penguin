@@ -107,7 +107,7 @@ void sleepy_penguin_init_timerfd(void)
 {
 	VALUE mSleepyPenguin, cTimerFD;
 
-	mSleepyPenguin = rb_const_get(rb_cObject, rb_intern("SleepyPenguin"));
+	mSleepyPenguin = rb_define_module("SleepyPenguin");
 	cTimerFD = rb_define_class_under(mSleepyPenguin, "TimerFD", rb_cIO);
 	rb_define_singleton_method(cTimerFD, "create", create, -1);
 	rb_define_singleton_method(cTimerFD, "new", create, -1);

@@ -156,7 +156,7 @@ void sleepy_penguin_init_eventfd(void)
 {
 	VALUE mSleepyPenguin, cEventFD;
 
-	mSleepyPenguin = rb_const_get(rb_cObject, rb_intern("SleepyPenguin"));
+	mSleepyPenguin = rb_define_module("SleepyPenguin");
 	cEventFD = rb_define_class_under(mSleepyPenguin, "EventFD", rb_cIO);
 	rb_define_singleton_method(cEventFD, "new", create, -1);
 #ifdef EFD_NONBLOCK

@@ -375,6 +375,13 @@ static VALUE real_epwait(struct rb_epoll *ep)
 }
 #endif /* 1.8 Green thread compatibility code */
 
+/*
+ * Calls epoll_wait(2) and yields
+ *
+ * :call-seq:
+ *
+ *	epoll.wait(64, 1000) { |flags, obj| ... }
+ */
 static VALUE epwait(int argc, VALUE *argv, VALUE self)
 {
 	VALUE timeout, maxevents;
@@ -529,7 +536,7 @@ void sleepy_penguin_init_epoll(void)
 {
 	VALUE mSleepyPenguin, cEpoll;
 
-	mSleepyPenguin = rb_const_get(rb_cObject, rb_intern("SleepyPenguin"));
+	mSleepyPenguin = rb_define_module("SleepyPenguin");
 	cEpoll = rb_define_class_under(mSleepyPenguin, "Epoll", rb_cObject);
 	cEpoll_IO = rb_define_class_under(cEpoll, "IO", rb_cIO);
 	rb_define_method(cEpoll, "initialize", init, -1);
