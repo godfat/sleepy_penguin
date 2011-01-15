@@ -50,6 +50,7 @@ struct rb_epoll {
 	int capa;
 	struct epoll_event *events;
 	VALUE io;
+	VALUE marks;
 	int flags;
 };
 
@@ -93,6 +94,7 @@ static void gcmark(void *ptr)
 	struct rb_epoll *ep = ptr;
 
 	rb_gc_mark(ep->io);
+	rb_gc_mark(ep->marks);
 }
 
 static void gcfree(void *ptr)
@@ -122,6 +124,7 @@ static VALUE alloc(VALUE klass)
 	self = Data_Make_Struct(klass, struct rb_epoll, gcmark, gcfree, ep);
 	ep->fd = -1;
 	ep->io = Qnil;
+	ep->marks = rb_ary_new();
 	ep->capa = step;
 	ep->flags = EPOLL_CLOEXEC;
 	ep->events = xmalloc(sizeof(struct epoll_event) * ep->capa);
@@ -201,6 +204,8 @@ static VALUE ctl(VALUE self, VALUE io, VALUE flags, int op)
 		if (rv == -1)
 			rb_sys_fail("epoll_ctl");
 	}
+	if (op == EPOLL_CTL_ADD)
+		rb_ary_store(ep->marks, fd, io);
 
 	return INT2NUM(rv);
 }
@@ -226,6 +231,8 @@ static VALUE set(VALUE self, VALUE io, VALUE flags)
 			rv = epoll_ctl(ep->fd, EPOLL_CTL_ADD, fd, &event);
 			if (rv == -1)
 				rb_sys_fail("epoll_ctl - add");
+
+			rb_ary_store(ep->marks, fd, io);
 			return INT2NUM(rv);
 		}
 		rb_sys_fail("epoll_ctl - mod");
@@ -514,6 +521,7 @@ static VALUE init_copy(VALUE copy, VALUE orig)
 	       NIL_P(b->io) && "Ruby broken?");
 
 	ep_check(a);
+	b->marks = a->marks;
 	b->flags = a->flags;
 	b->fd = cloexec_dup(a);
 	if (b->fd == -1) {
