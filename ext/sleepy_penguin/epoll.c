@@ -587,7 +587,9 @@ void sleepy_penguin_init_epoll(void)
 	rb_define_const(cEpoll, "CLOEXEC", INT2NUM(EPOLL_CLOEXEC));
 	rb_define_const(cEpoll, "IN", INT2NUM(EPOLLIN));
 	rb_define_const(cEpoll, "OUT", INT2NUM(EPOLLOUT));
+#ifdef EPOLLRDHUP
 	rb_define_const(cEpoll, "RDHUP", INT2NUM(EPOLLRDHUP));
+#endif
 	rb_define_const(cEpoll, "PRI", INT2NUM(EPOLLPRI));
 	rb_define_const(cEpoll, "ERR", INT2NUM(EPOLLERR));
 	rb_define_const(cEpoll, "HUP", INT2NUM(EPOLLHUP));

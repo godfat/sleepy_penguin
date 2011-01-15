@@ -154,6 +154,8 @@ class TestEpoll < Test::Unit::TestCase
   end
 
   def test_rdhup
+    defined?(Epoll::RDHUP) or
+      return warn "skipping test, EPOLLRDHUP not available"
     rd, wr = UNIXSocket.pair
     @ep.add rd, Epoll::RDHUP
     tmp = []
