@@ -124,7 +124,7 @@ static VALUE alloc(VALUE klass)
 	self = Data_Make_Struct(klass, struct rb_epoll, gcmark, gcfree, ep);
 	ep->fd = -1;
 	ep->io = Qnil;
-	ep->marks = rb_ary_new();
+	ep->marks = Qnil;
 	ep->capa = step;
 	ep->flags = EPOLL_CLOEXEC;
 	ep->events = xmalloc(sizeof(struct epoll_event) * ep->capa);
@@ -145,6 +145,7 @@ static void my_epoll_create(struct rb_epoll *ep)
 			rb_sys_fail("epoll_create1");
 	}
 	st_insert(active, (st_data_t)ep->fd, (st_data_t)ep);
+	ep->marks = rb_ary_new();
 }
 
 static void ep_check(struct rb_epoll *ep)
@@ -521,7 +522,9 @@ static VALUE init_copy(VALUE copy, VALUE orig)
 	       NIL_P(b->io) && "Ruby broken?");
 
 	ep_check(a);
+	assert(NIL_P(b->marks) && "mark array not nil");
 	b->marks = a->marks;
+	assert(TYPE(b->marks) == T_ARRAY && "mark array not initialized");
 	b->flags = a->flags;
 	b->fd = cloexec_dup(a);
 	if (b->fd == -1) {
