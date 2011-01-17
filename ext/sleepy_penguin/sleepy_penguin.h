@@ -26,6 +26,18 @@
 #  endif
 #endif
 
+#if defined(RFILE) && defined(HAVE_ST_FD)
+static int my_io_closed(VALUE io)
+{
+	return RFILE(io)->fptr->fd < 0;
+}
+#else
+static int my_io_closed(VALUE io)
+{
+	return rb_funcall(io, rb_intern("closed?"), 0) == Qtrue;
+}
+#endif
+
 static int my_fileno(VALUE io)
 {
 	rb_io_t *fptr;

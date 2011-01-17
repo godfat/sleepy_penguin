@@ -4,6 +4,7 @@ have_header("pthread.h") or abort 'pthread.h not found'
 have_header('sys/eventfd.h')
 have_header('sys/signalfd.h')
 have_header('sys/timerfd.h')
+have_header('ruby/io.h') and have_struct_member('rb_io_t', 'fd', 'ruby/io.h')
 have_func('rb_memerror')
 have_func('rb_io_close')
 have_func('epoll_create1', %w(sys/epoll.h))

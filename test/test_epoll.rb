@@ -320,7 +320,7 @@ class TestEpoll < Test::Unit::TestCase
     assert_nil @ep.delete(@rd)
     assert_nil @ep.delete(@wr)
     assert_nothing_raised { @ep.add @rd, Epoll::IN }
-    assert_equal 0, @ep.delete(@rd)
+    assert_equal @rd, @ep.delete(@rd)
     assert_nil @ep.delete(@rd)
   end
 end

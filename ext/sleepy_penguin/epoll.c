@@ -51,6 +51,7 @@ struct rb_epoll {
 	struct epoll_event *events;
 	VALUE io;
 	VALUE marks;
+	VALUE flag_cache;
 	int flags;
 };
 
@@ -95,6 +96,7 @@ static void gcmark(void *ptr)
 
 	rb_gc_mark(ep->io);
 	rb_gc_mark(ep->marks);
+	rb_gc_mark(ep->flag_cache);
 }
 
 static void gcfree(void *ptr)
@@ -125,6 +127,7 @@ static VALUE alloc(VALUE klass)
 	ep->fd = -1;
 	ep->io = Qnil;
 	ep->marks = Qnil;
+	ep->flag_cache = Qnil;
 	ep->capa = step;
 	ep->flags = EPOLL_CLOEXEC;
 	ep->events = xmalloc(sizeof(struct epoll_event) * ep->capa);
@@ -146,6 +149,7 @@ static void my_epoll_create(struct rb_epoll *ep)
 	}
 	st_insert(active, (st_data_t)ep->fd, (st_data_t)ep);
 	ep->marks = rb_ary_new();
+	ep->flag_cache = rb_ary_new();
 }
 
 static void ep_check(struct rb_epoll *ep)
@@ -154,6 +158,8 @@ static void ep_check(struct rb_epoll *ep)
 		my_epoll_create(ep);
 	if (ep->fd == -1)
 		rb_raise(rb_eIOError, "closed");
+	assert(TYPE(ep->marks) == T_ARRAY && "marks not initialized");
+	assert(TYPE(ep->flag_cache) == T_ARRAY && "flag_cache not initialized");
 }
 
 /*
@@ -205,8 +211,16 @@ static VALUE ctl(VALUE self, VALUE io, VALUE flags, int op)
 		if (rv == -1)
 			rb_sys_fail("epoll_ctl");
 	}
-	if (op == EPOLL_CTL_ADD)
+	switch (op) {
+	case EPOLL_CTL_ADD:
 		rb_ary_store(ep->marks, fd, io);
+		/* fall-through */
+	case EPOLL_CTL_MOD:
+		rb_ary_store(ep->flag_cache, fd, flags);
+		break;
+	case EPOLL_CTL_DEL:
+		rb_ary_store(ep->marks, fd, Qnil);
+	}
 
 	return INT2NUM(rv);
 }
@@ -221,23 +235,44 @@ static VALUE set(VALUE self, VALUE io, VALUE flags)
 	struct rb_epoll *ep = ep_get(self);
 	int fd = my_fileno(io);
 	int rv;
+	VALUE cur_io = rb_ary_entry(ep->marks, fd);
 
 	ep_check(ep);
 	event.events = NUM2UINT(flags);
 	pack_event_data(&event, io);
 
-	rv = epoll_ctl(ep->fd, EPOLL_CTL_MOD, fd, &event);
-	if (rv == -1) {
-		if (errno == ENOENT) {
-			rv = epoll_ctl(ep->fd, EPOLL_CTL_ADD, fd, &event);
-			if (rv == -1)
-				rb_sys_fail("epoll_ctl - add");
+	if (cur_io == io) {
+		VALUE cur_flags = rb_ary_entry(ep->flag_cache, fd);
+		uint32_t cur_events;
 
-			rb_ary_store(ep->marks, fd, io);
-			return INT2NUM(rv);
+		assert(!NIL_P(cur_flags) && "cur_flags nil but cur_io is not");
+		cur_events = NUM2UINT(cur_flags);
+
+		if (!(cur_events & EPOLLONESHOT) && cur_events == event.events)
+			return Qnil;
+
+fallback_mod:
+		rv = epoll_ctl(ep->fd, EPOLL_CTL_MOD, fd, &event);
+		if (rv == -1) {
+			if (errno != ENOENT)
+				rb_sys_fail("epoll_ctl - mod");
+			errno = 0;
+			rb_warn("epoll flag_cache failed (mod -> add)");
+			goto fallback_add;
 		}
-		rb_sys_fail("epoll_ctl - mod");
+	} else {
+fallback_add:
+		rv = epoll_ctl(ep->fd, EPOLL_CTL_ADD, fd, &event);
+		if (rv == -1) {
+			if (errno != EEXIST)
+				rb_sys_fail("epoll_ctl - add");
+			errno = 0;
+			rb_warn("epoll flag_cache failed (add -> mod)");
+			goto fallback_mod;
+		}
+		rb_ary_store(ep->marks, fd, io);
 	}
+	rb_ary_store(ep->flag_cache, fd, flags);
 
 	return INT2NUM(rv);
 }
@@ -253,16 +288,26 @@ static VALUE delete(VALUE self, VALUE io)
 	struct rb_epoll *ep = ep_get(self);
 	int fd = my_fileno(io);
 	int rv;
+	VALUE cur_io;
 
 	ep_check(ep);
+	cur_io = rb_ary_entry(ep->marks, fd);
+	if (NIL_P(cur_io) || my_io_closed(cur_io))
+		return Qnil;
+
 	rv = epoll_ctl(ep->fd, EPOLL_CTL_DEL, fd, NULL);
 	if (rv == -1) {
-		if (errno != ENOENT)
+		/* beware of IO.for_fd-created descriptors */
+		if (errno == ENOENT || errno == EBADF) {
+			errno = 0;
+			io = Qnil;
+		} else {
 			rb_sys_fail("epoll_ctl - del");
-		errno = 0;
-		return Qnil;
+		}
 	}
-	return INT2NUM(rv);
+	rb_ary_store(ep->marks, fd, Qnil);
+
+	return io;
 }
 
 static VALUE epwait_result(struct rb_epoll *ep, int n)
@@ -523,8 +568,11 @@ static VALUE init_copy(VALUE copy, VALUE orig)
 
 	ep_check(a);
 	assert(NIL_P(b->marks) && "mark array not nil");
+	assert(NIL_P(b->flag_cache) && "flag_cache not nil");
 	b->marks = a->marks;
+	b->flag_cache = a->flag_cache;
 	assert(TYPE(b->marks) == T_ARRAY && "mark array not initialized");
+	assert(TYPE(b->flag_cache) == T_ARRAY && "flag_cache not initialized");
 	b->flags = a->flags;
 	b->fd = cloexec_dup(a);
 	if (b->fd == -1) {
