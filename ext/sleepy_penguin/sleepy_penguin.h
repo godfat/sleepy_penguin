@@ -43,7 +43,7 @@ static int my_fileno(VALUE io)
 	rb_io_t *fptr;
 
 	switch (TYPE(io)) {
-	case T_FIXNUM: return NUM2INT(io);
+	case T_FIXNUM: return FIX2INT(io);
 	case T_FILE:
 		GetOpenFile(io, fptr);
 		return FPTR_TO_FD(fptr);
