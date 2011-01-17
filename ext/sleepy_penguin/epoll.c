@@ -220,6 +220,7 @@ static VALUE ctl(VALUE self, VALUE io, VALUE flags, int op)
 		break;
 	case EPOLL_CTL_DEL:
 		rb_ary_store(ep->marks, fd, Qnil);
+		rb_ary_store(ep->flag_cache, fd, Qnil);
 	}
 
 	return INT2NUM(rv);
@@ -306,6 +307,7 @@ static VALUE delete(VALUE self, VALUE io)
 		}
 	}
 	rb_ary_store(ep->marks, fd, Qnil);
+	rb_ary_store(ep->flag_cache, fd, Qnil);
 
 	return io;
 }
@@ -588,6 +590,27 @@ static VALUE init_copy(VALUE copy, VALUE orig)
 	return copy;
 }
 
+static VALUE io_for(VALUE self, VALUE obj)
+{
+	struct rb_epoll *ep = ep_get(self);
+
+	return rb_ary_entry(ep->marks, my_fileno(obj));
+}
+
+static VALUE flags_for(VALUE self, VALUE obj)
+{
+	struct rb_epoll *ep = ep_get(self);
+
+	return rb_ary_entry(ep->flag_cache, my_fileno(obj));
+}
+
+static VALUE include_p(VALUE self, VALUE obj)
+{
+	struct rb_epoll *ep = ep_get(self);
+
+	return NIL_P(rb_ary_entry(ep->marks, my_fileno(obj))) ? Qfalse : Qtrue;
+}
+
 /*
  * we close (or lose to GC) epoll descriptors at fork to avoid leakage
  * and invalid objects being referenced later in the child
@@ -633,6 +656,9 @@ void sleepy_penguin_init_epoll(void)
 	rb_define_method(cEpoll, "mod", mod, 2);
 	rb_define_method(cEpoll, "del", del, 1);
 	rb_define_method(cEpoll, "delete", delete, 1);
+	rb_define_method(cEpoll, "io_for", io_for, 1);
+	rb_define_method(cEpoll, "flags_for", flags_for, 1);
+	rb_define_method(cEpoll, "include?", include_p, 1);
 	rb_define_method(cEpoll, "set", set, 2);
 	rb_define_method(cEpoll, "wait", epwait, -1);
 	rb_define_const(cEpoll, "CLOEXEC", INT2NUM(EPOLL_CLOEXEC));

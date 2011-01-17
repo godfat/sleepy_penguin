@@ -323,4 +323,32 @@ class TestEpoll < Test::Unit::TestCase
     assert_equal @rd, @ep.delete(@rd)
     assert_nil @ep.delete(@rd)
   end
+
+  def test_io_for
+    @ep.add @rd, Epoll::IN
+    assert_equal @rd, @ep.io_for(@rd.fileno)
+    assert_equal @rd, @ep.io_for(@rd)
+    @ep.del @rd
+    assert_nil @ep.io_for(@rd.fileno)
+    assert_nil @ep.io_for(@rd)
+  end
+
+  def test_flags_for
+    @ep.add @rd, Epoll::IN
+    assert_equal Epoll::IN, @ep.flags_for(@rd.fileno)
+    assert_equal Epoll::IN, @ep.flags_for(@rd)
+
+    @ep.del @rd
+    assert_nil @ep.flags_for(@rd.fileno)
+    assert_nil @ep.flags_for(@rd)
+  end
+
+  def test_include?
+    assert ! @ep.include?(@rd)
+    @ep.add @rd, Epoll::IN
+    assert @ep.include?(@rd)
+    assert @ep.include?(@rd.fileno)
+    assert ! @ep.include?(@wr)
+    assert ! @ep.include?(@wr.fileno)
+  end
 end
