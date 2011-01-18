@@ -428,6 +428,7 @@ static int epwait_timed(struct rb_epoll *ep)
 		if (n > 0 || (n == -1 && errno != EINTR))
 			return n;
 
+		/* XXX use CLOCK_MONOTONIC if people care about 1.8... */
 		gettimeofday(&now, NULL);
 		timersub(&now, &t0, &diff);
 		timersub(&tv, &diff, &tv);
