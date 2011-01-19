@@ -1,6 +1,7 @@
 # -*- encoding: binary -*-
-cgit_url = "http://git.bogomips.org/cgit/sleepy_penguin.git"
-git_url = 'git://git.bogomips.org/sleepy_penguin.git'
+require 'wrongdoc'
+cgit_url = Wrongdoc.config[:cgit_url]
+git_url = Wrongdoc.config[:git_url]
 
 desc "post news article to rubyforge"
 task :publish_news do

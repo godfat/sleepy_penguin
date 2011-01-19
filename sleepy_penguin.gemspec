@@ -7,7 +7,7 @@ name, summary, title = readme_metadata
 Gem::Specification.new do |s|
   s.name = %q{sleepy_penguin}
   s.version = ENV["VERSION"].dup
-  s.homepage = 'http://bogomips.org/sleepy_penguin/'
+  s.homepage = Wrongdoc.config[:rdoc_url]
   s.authors = ["#{name} hackers"]
   s.date = Time.now.utc.strftime('%Y-%m-%d')
   s.description = readme_description
