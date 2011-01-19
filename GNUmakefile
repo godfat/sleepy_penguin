@@ -36,7 +36,11 @@ pkg_extra := GIT-VERSION-FILE NEWS ChangeLog LATEST
 ChangeLog: GIT-VERSION-FILE .wrongdoc.yml
 	wrongdoc prepare
 
-.manifest: ChangeLog
+manifest:
+	$(RM) .manifest
+	$(MAKE) .manifest
+
+.manifest: ChangeLog GIT-VERSION-FILE
 	(git ls-files && for i in $@ $(pkg_extra); do echo $$i; done) | \
 		LC_ALL=C sort > $@+
 	cmp $@+ $@ || mv $@+ $@
@@ -83,14 +87,14 @@ gem: $(pkggem)
 install-gem: $(pkggem)
 	gem install $(CURDIR)/$<
 
-$(pkggem): .manifest fix-perms
+$(pkggem): manifest fix-perms
 	gem build $(rfpackage).gemspec
 	mkdir -p pkg
 	mv $(@F) $@
 
 $(pkgtgz): distdir = $(basename $@)
 $(pkgtgz): HEAD = v$(VERSION)
-$(pkgtgz): .manifest fix-perms
+$(pkgtgz): manifest fix-perms
 	@test -n "$(distdir)"
 	$(RM) -r $(distdir)
 	mkdir -p $(distdir)
@@ -152,4 +156,4 @@ doc_gz:
 	for i in $(docs); do \
 	  gzip --rsyncable -9 < $$i > $$i.gz; touch -r $$i $$i.gz; done
 
-.PHONY: .FORCE-GIT-VERSION-FILE doc test $(test_units)
+.PHONY: .FORCE-GIT-VERSION-FILE doc test $(test_units) manifest
