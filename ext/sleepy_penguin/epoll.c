@@ -164,7 +164,9 @@ static void ep_check(struct rb_epoll *ep)
 
 /*
  * creates a new Epoll object with an optional +flags+ argument.
- * +flags+ may currently be +Epoll::CLOEXEC+ or 0 (or nil)
+ * +flags+ may currently be Epoll::CLOEXEC or +0+ (or +nil+)
+ * Epoll::CLOEXEC will be set by default if +nil+ or no
+ * argument is passed.
  */
 static VALUE init(int argc, VALUE *argv, VALUE self)
 {
@@ -598,6 +600,13 @@ static VALUE io_for(VALUE self, VALUE obj)
 	return rb_ary_entry(ep->marks, my_fileno(obj));
 }
 
+/*
+ * :call-seq:
+ *
+ *	epoll.flags_for(io) => Integer
+ *
+ * Returns the flags currently watched for in current Epoll object.
+ */
 static VALUE flags_for(VALUE self, VALUE obj)
 {
 	struct rb_epoll *ep = ep_get(self);
@@ -605,6 +614,15 @@ static VALUE flags_for(VALUE self, VALUE obj)
 	return rb_ary_entry(ep->flag_cache, my_fileno(obj));
 }
 
+/*
+ * :call-seq:
+ *
+ *	epoll.include?(io) => true or false
+ *
+ * Returns whether or not a given IO is watched and prevented from being
+ * garbage-collected by the current Epoll object.  This may include
+ * closed IO objects.
+ */
 static VALUE include_p(VALUE self, VALUE obj)
 {
 	struct rb_epoll *ep = ep_get(self);
@@ -662,17 +680,41 @@ void sleepy_penguin_init_epoll(void)
 	rb_define_method(cEpoll, "include?", include_p, 1);
 	rb_define_method(cEpoll, "set", set, 2);
 	rb_define_method(cEpoll, "wait", epwait, -1);
+
+	/* specifies wheter close-on-exec flag is set for Epoll.new */
 	rb_define_const(cEpoll, "CLOEXEC", INT2NUM(EPOLL_CLOEXEC));
+
+	/* watch for read/recv operations */
 	rb_define_const(cEpoll, "IN", INT2NUM(EPOLLIN));
+
+	/* watch for write/send operations */
 	rb_define_const(cEpoll, "OUT", INT2NUM(EPOLLOUT));
+
 #ifdef EPOLLRDHUP
+	/* watch a specified IO for shutdown(SHUT_WR) on the remote-end */
 	rb_define_const(cEpoll, "RDHUP", INT2NUM(EPOLLRDHUP));
 #endif
+	/* watch for urgent read(2) data */
 	rb_define_const(cEpoll, "PRI", INT2NUM(EPOLLPRI));
+
+	/*
+	 * watch for errors, there is no need to specify this,
+	 * it is always monitored when an IO is watched
+	 */
 	rb_define_const(cEpoll, "ERR", INT2NUM(EPOLLERR));
+
+	/*
+	 * watch for hangups, there is no need to specify this,
+	 * it is always monitored when an IO is watched
+	 */
 	rb_define_const(cEpoll, "HUP", INT2NUM(EPOLLHUP));
+
+	/* notifications are only Edge Triggered, see epoll(7) */
 	rb_define_const(cEpoll, "ET", INT2NUM(EPOLLET));
+
+	/* unwatch the descriptor once any event has fired */
 	rb_define_const(cEpoll, "ONESHOT", INT2NUM(EPOLLONESHOT));
+
 	id_for_fd = rb_intern("for_fd");
 	active = st_init_numtable();
 
