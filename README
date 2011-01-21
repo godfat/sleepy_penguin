@@ -36,13 +36,13 @@ Unpack it, and run "ruby setup.rb"
 
 You can get the latest source via git from the following locations:
 
-  git://git.bogomips.org/sleepy_penguin.git
+  git://bogomips.org/sleepy_penguin.git
   git://repo.or.cz/sleepy_penguin.git (mirror)
 
 You may browse the code from the web and download the latest snapshot
 tarballs here:
 
-* http://git.bogomips.org/cgit/sleepy_penguin.git (cgit)
+* http://bogomips.org/sleepy_penguin.git (cgit)
 * http://repo.or.cz/w/sleepy_penguin.git (gitweb)
 
 Inline patches (from "git format-patch") to the mailing list are
