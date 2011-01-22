@@ -26,17 +26,36 @@
 #  endif
 #endif
 
+static int fixint_closed_p(VALUE io)
+{
+	return (fcntl(FIX2INT(io), F_GETFD) == -1 && errno == EBADF);
+}
+
 #if defined(RFILE) && defined(HAVE_ST_FD)
-static int my_io_closed(VALUE io)
+static int my_rb_io_closed(VALUE io)
 {
 	return RFILE(io)->fptr->fd < 0;
 }
 #else
-static int my_io_closed(VALUE io)
+static int my_rb_io_closed(VALUE io)
 {
 	return rb_funcall(io, rb_intern("closed?"), 0) == Qtrue;
 }
 #endif
+
+static int my_io_closed(VALUE io)
+{
+	switch (TYPE(io)) {
+	case T_FIXNUM:
+		return fixint_closed_p(io);
+	case T_FILE:
+		break;
+	default:
+		io = rb_convert_type(io, T_FILE, "IO", "to_io");
+	}
+
+	return my_rb_io_closed(io);
+}
 
 static int my_fileno(VALUE io)
 {

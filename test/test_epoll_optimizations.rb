@@ -83,6 +83,30 @@ class TestEpollOptimizations < Test::Unit::TestCase
     assert_equal 0, lines.grep(/^epoll_ctl/).size
   end
 
+  def test_delete_closed_proxy
+    obj = Struct.new(:to_io).new(@wr)
+    rv = nil
+    @ep.add(obj, Epoll::OUT)
+    @wr.close
+    io, err = Strace.me { rv = @ep.delete(obj) }
+    lines = io.readlines; io.close
+    assert_nil err
+    assert_equal obj, rv
+    assert_equal 0, lines.grep(/^epoll_ctl/).size
+  end
+
+  def test_delete_closed_fileno
+    fileno = @wr.fileno
+    @ep.add(fileno, Epoll::OUT)
+    @wr.close
+    rv = nil
+    io, err = Strace.me { rv = @ep.delete(fileno) }
+    lines = io.readlines; io.close
+    assert_nil err
+    assert_equal fileno, rv
+    assert_equal 0, lines.grep(/^epoll_ctl/).size
+  end
+
   def test_delete_aliased_a
     tmp = IO.for_fd @wr.fileno
     IO_PURGATORY << tmp

@@ -289,11 +289,15 @@ fallback_add:
 static VALUE delete(VALUE self, VALUE io)
 {
 	struct rb_epoll *ep = ep_get(self);
-	int fd = my_fileno(io);
+	int fd;
 	int rv;
 	VALUE cur_io;
 
 	ep_check(ep);
+	if (my_io_closed(io))
+		goto out;
+
+	fd = my_fileno(io);
 	cur_io = rb_ary_entry(ep->marks, fd);
 	if (NIL_P(cur_io) || my_io_closed(cur_io))
 		return Qnil;
@@ -308,6 +312,7 @@ static VALUE delete(VALUE self, VALUE io)
 			rb_sys_fail("epoll_ctl - del");
 		}
 	}
+out:
 	rb_ary_store(ep->marks, fd, Qnil);
 	rb_ary_store(ep->flag_cache, fd, Qnil);
 
