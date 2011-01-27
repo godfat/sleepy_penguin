@@ -59,8 +59,9 @@ manifest:
 	cmp $@+ $@ || mv $@+ $@
 	$(RM) $@+
 
-doc: .document .wrongdoc.yml
-	find lib ext -type f -name '*.rbc' -exec rm -f '{}' ';'
+doc:: .document .wrongdoc.yml
+	find lib -type f -name '*.rbc' -exec rm -f '{}' ';'
+	-find ext -type f -name '*.rbc' -exec rm -f '{}' ';'
 	$(RM) -r doc
 	wrongdoc all
 	install -m644 COPYING doc/COPYING
