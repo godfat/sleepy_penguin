@@ -1,6 +1,7 @@
 RUBY = ruby
 RAKE = rake
 RSYNC = rsync
+WRONGDOC = wrongdoc
 
 GIT-VERSION-FILE: .FORCE-GIT-VERSION-FILE
 	@./GIT-VERSION-GEN
@@ -47,7 +48,7 @@ endif
 
 pkg_extra := GIT-VERSION-FILE NEWS ChangeLog LATEST
 ChangeLog: GIT-VERSION-FILE .wrongdoc.yml
-	wrongdoc prepare
+	$(WRONGDOC) prepare
 
 manifest:
 	$(RM) .manifest
@@ -63,7 +64,7 @@ doc:: .document .wrongdoc.yml
 	find lib -type f -name '*.rbc' -exec rm -f '{}' ';'
 	-find ext -type f -name '*.rbc' -exec rm -f '{}' ';'
 	$(RM) -r doc
-	wrongdoc all
+	$(WRONGDOC) all
 	install -m644 COPYING doc/COPYING
 	install -m644 $(shell grep '^[A-Z]' .document) doc/
 
@@ -76,10 +77,10 @@ release_changes := release_changes-$(VERSION)
 release-notes: $(release_notes)
 release-changes: $(release_changes)
 $(release_changes):
-	wrongdoc release_changes > $@+
+	$(WRONGDOC) release_changes > $@+
 	$(VISUAL) $@+ && test -s $@+ && mv $@+ $@
 $(release_notes):
-	wrongdoc release_notes > $@+
+	$(WRONGDOC) release_notes > $@+
 	$(VISUAL) $@+ && test -s $@+ && mv $@+ $@
 
 # ensures we're actually on the tagged $(VERSION), only used for release
