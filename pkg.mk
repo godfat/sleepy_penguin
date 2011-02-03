@@ -7,7 +7,7 @@ GIT-VERSION-FILE: .FORCE-GIT-VERSION-FILE
 	@./GIT-VERSION-GEN
 -include GIT-VERSION-FILE
 -include local.mk
-DLEXT := $(shell $(RUBY) -rrbconfig -e 'puts Config::CONFIG["DLEXT"]')
+DLEXT := $(shell $(RUBY) -rrbconfig -e 'puts RbConfig::CONFIG["DLEXT"]')
 RUBY_VERSION := $(shell $(RUBY) -e 'puts RUBY_VERSION')
 RUBY_ENGINE := $(shell $(RUBY) -e 'puts((RUBY_ENGINE rescue "ruby"))')
 lib := lib
