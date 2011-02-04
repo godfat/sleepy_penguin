@@ -14,18 +14,20 @@
 #define EP_RECREATE (-2)
 
 #ifndef HAVE_RB_MEMERROR
-static void rb_memerror(void)
+static void my_memerror(void)
 {
 	static const char e[] = "[FATAL] failed to allocate memory\n";
 	write(2, e, sizeof(e) - 1);
 	abort();
 }
+#define rb_memerror my_memerror
 #endif
 #ifndef HAVE_RB_IO_CLOSE
-static VALUE rb_io_close(VALUE io)
+static VALUE my_io_close(VALUE io)
 {
 	return rb_funcall(io, rb_intern("close"), 0);
 }
+#define rb_io_close my_io_close
 #endif
 
 static st_table *active;
@@ -70,7 +72,7 @@ static struct rb_epoll *ep_get(VALUE self)
  * Don't worry about thread-safety since current Ruby 1.9 won't
  * call this without GVL.
  */
-static int epoll_create1(int flags)
+static int my_epoll_create1(int flags)
 {
 	int fd = epoll_create(1024); /* size ignored since 2.6.8 */
 
@@ -88,6 +90,7 @@ err:
 		return -1;
 	}
 }
+#define epoll_create1 my_epoll_create1
 #endif
 
 static void gcmark(void *ptr)
