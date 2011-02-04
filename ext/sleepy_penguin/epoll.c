@@ -115,7 +115,7 @@ static VALUE alloc(VALUE klass)
 	ep->marks = Qnil;
 	ep->flag_cache = Qnil;
 	ep->capa = step;
-	ep->flags = EPOLL_CLOEXEC;
+	ep->flags = 0;
 	ep->events = xmalloc(sizeof(struct epoll_event) * ep->capa);
 
 	return self;
@@ -162,7 +162,7 @@ static VALUE init(int argc, VALUE *argv, VALUE self)
 
 	rb_scan_args(argc, argv, "01", &fl);
 	if (NIL_P(fl)) {
-		flags = EPOLL_CLOEXEC;
+		flags = 0;
 	} else {
 		switch (TYPE(fl)) {
 		case T_FIXNUM:
