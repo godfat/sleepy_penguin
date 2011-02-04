@@ -129,7 +129,11 @@ class TestEpoll < Test::Unit::TestCase
       Process.kill(:USR1, Process.ppid)
     end
     time[:START_WAIT] = Time.now
-    @ep.wait { |flags, obj| tmp << [ flags, obj ]; time[:EP] = Time.now }
+    begin
+      @ep.wait { |flags, obj| tmp << [ flags, obj ]; time[:EP] = Time.now }
+    rescue Errno::EINTR
+      retry
+    end
     assert_equal([[Epoll::IN, @rd]], tmp)
     _, status = Process.waitpid2(pid)
     assert status.success?

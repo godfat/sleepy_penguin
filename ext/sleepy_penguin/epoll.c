@@ -355,12 +355,7 @@ static VALUE nogvl_wait(void *args)
 
 static VALUE real_epwait(struct rb_epoll *ep)
 {
-	int n;
-
-	do {
-		n = (int)rb_thread_blocking_region(nogvl_wait, ep,
-		                                   RUBY_UBF_IO, 0);
-	} while (n == -1 && errno == EINTR);
+	int n = (int)rb_thread_blocking_region(nogvl_wait, ep, RUBY_UBF_IO, 0);
 
 	return epwait_result(ep, n);
 }
@@ -403,7 +398,7 @@ static int epwait_forever(struct rb_epoll *ep)
 	do {
 		(void)rb_io_wait_readable(ep->fd);
 		n = safe_epoll_wait(ep);
-	} while (n == 0 || (n == -1 && errno == EINTR));
+	} while (n == 0);
 
 	return n;
 }
@@ -426,13 +421,7 @@ static int epwait_timed(struct rb_epoll *ep)
 		gettimeofday(&t0, NULL);
 		(void)rb_thread_select(ep->fd + 1, &rfds, NULL, NULL, &tv);
 		n = safe_epoll_wait(ep);
-
-		/*
-		 * if we got EINTR from epoll_wait /and/ timed out
-		 * just consider it a timeout and don't raise an error
-		 */
-
-		if (n > 0 || (n == -1 && errno != EINTR))
+		if (n != 0)
 			return n;
 
 		/* XXX use CLOCK_MONOTONIC if people care about 1.8... */
