@@ -13,23 +13,6 @@
 
 #define EP_RECREATE (-2)
 
-#ifndef HAVE_RB_MEMERROR
-static void my_memerror(void)
-{
-	static const char e[] = "[FATAL] failed to allocate memory\n";
-	write(2, e, sizeof(e) - 1);
-	abort();
-}
-#define rb_memerror my_memerror
-#endif
-#ifndef HAVE_RB_IO_CLOSE
-static VALUE my_io_close(VALUE io)
-{
-	return rb_funcall(io, rb_intern("close"), 0);
-}
-#define rb_io_close my_io_close
-#endif
-
 static st_table *active;
 static const int step = 64; /* unlikely to grow unless you're huge */
 static VALUE cEpoll_IO;
