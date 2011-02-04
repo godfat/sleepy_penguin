@@ -213,6 +213,16 @@ static VALUE events(VALUE self)
 	return rv;
 }
 
+static VALUE init_copy(VALUE dest, VALUE orig)
+{
+	VALUE tmp;
+
+	dest = rb_call_super(1, &orig);
+	rb_ivar_set(dest, id_inotify_buf, rb_str_new(0, 128));
+
+	return dest;
+}
+
 void sleepy_penguin_init_inotify(void)
 {
 	VALUE mSleepyPenguin, cInotify;
@@ -221,6 +231,7 @@ void sleepy_penguin_init_inotify(void)
 	cInotify = rb_define_class_under(mSleepyPenguin, "Inotify", rb_cIO);
 	rb_define_method(cInotify, "add_watch", add_watch, 2);
 	rb_define_method(cInotify, "rm_watch", rm_watch, 1);
+	rb_define_method(cInotify, "initialize_copy", init_copy, 1);
 	rb_define_method(cInotify, "take", take, -1);
 	cEvent = rb_struct_define(NULL, "wd", "mask", "cookie", "name", NULL);
 	rb_define_const(cInotify, "Event", cEvent);

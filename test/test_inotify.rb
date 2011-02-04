@@ -12,6 +12,19 @@ class TestInotify < Test::Unit::TestCase
     assert_kind_of(IO, ino)
   end
 
+  def test_dup
+    a = Inotify.new
+    b = a.dup
+    assert a.fileno != b.fileno
+    abuf = a.instance_variable_get(:@inotify_buf)
+    bbuf = b.instance_variable_get(:@inotify_buf)
+    assert abuf.object_id != bbuf.object_id
+
+    atmp = a.instance_variable_get(:@inotify_tmp)
+    btmp = b.instance_variable_get(:@inotify_tmp)
+    assert_equal atmp.object_id, btmp.object_id
+  end
+
   def test_new_nonblock
     ino = Inotify.new Inotify::NONBLOCK
     flags = ino.fcntl(Fcntl::F_GETFL) & Fcntl::O_NONBLOCK
