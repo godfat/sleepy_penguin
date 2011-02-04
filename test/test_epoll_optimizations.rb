@@ -90,8 +90,8 @@ class TestEpollOptimizations < Test::Unit::TestCase
     @wr.close
     io, err = Strace.me { rv = @ep.delete(obj) }
     lines = io.readlines; io.close
-    assert_nil err
-    assert_equal obj, rv
+    assert_kind_of IOError, err
+    assert_nil rv
     assert_equal 0, lines.grep(/^epoll_ctl/).size
   end
 
