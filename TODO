@@ -1,3 +1,3 @@
-* SignalFD interface
+* FANotify interface
 
-* Inotify? Several libraries already support it, but it fits this project, too
+* SignalFD interface
