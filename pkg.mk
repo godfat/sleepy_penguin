@@ -61,7 +61,7 @@ manifest:
 	$(RM) $@+
 
 doc:: .document .wrongdoc.yml
-	find lib -type f -name '*.rbc' -exec rm -f '{}' ';'
+	-find lib -type f -name '*.rbc' -exec rm -f '{}' ';'
 	-find ext -type f -name '*.rbc' -exec rm -f '{}' ';'
 	$(RM) -r doc
 	$(WRONGDOC) all
