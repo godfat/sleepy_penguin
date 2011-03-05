@@ -1,5 +1,8 @@
 require 'test/unit'
-require 'strace'
+begin
+  require 'strace'
+rescue LoadError
+end
 $-w = true
 
 require 'sleepy_penguin'
@@ -148,4 +151,4 @@ class TestEpollOptimizations < Test::Unit::TestCase
     assert_equal 1, lines.grep(/^epoll_ctl/).size
     assert_equal 1, lines.grep(/EBADF/).size
   end
-end
+end if defined?(Strace)
