@@ -37,7 +37,7 @@ struct efd_args {
 static VALUE efd_write(void *_args)
 {
 	struct efd_args *args = _args;
-	ssize_t w = write(args->fd, &args->buf, sizeof(uint64_t));
+	ssize_t w = write(args->fd, &args->val, sizeof(uint64_t));
 
 	return (VALUE)w;
 }
@@ -45,7 +45,7 @@ static VALUE efd_write(void *_args)
 static VALUE efd_read(void *_args)
 {
 	struct efd_args *args = _args;
-	ssize_t r = read(args->fd, &args->buf, sizeof(uint64_t));
+	ssize_t r = read(args->fd, &args->val, sizeof(uint64_t));
 
 	return (VALUE)r;
 }
@@ -72,6 +72,7 @@ retry:
 static VALUE getvalue(VALUE self)
 {
 	struct efd_args x;
+	ssize_t w;
 
 	x.fd = my_fileno(self);
 
@@ -83,7 +84,7 @@ retry:
 		rb_sys_fail("read(eventfd)");
 	}
 
-	return ULL2NUM(x.buf);
+	return ULL2NUM(x.val);
 }
 #else  /* !HAVE_RB_THREAD_BLOCKING_REGION */
 
