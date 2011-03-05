@@ -93,7 +93,7 @@ static VALUE s_init(int argc, VALUE *argv, VALUE klass)
 static VALUE add_watch(VALUE self, VALUE path, VALUE vmask)
 {
 	int fd = my_fileno(self);
-	const char *pathname = StringValuePtr(path);
+	const char *pathname = StringValueCStr(path);
 	uint32_t mask = NUM2UINT(vmask);
 	int rc = inotify_add_watch(fd, pathname, mask);
 
