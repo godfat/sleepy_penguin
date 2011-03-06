@@ -4,7 +4,7 @@
 #include "value2timespec.h"
 static ID id_for_fd;
 
-static VALUE create(int argc, VALUE *argv, VALUE klass)
+static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 {
 	VALUE cid, fl;
 	int clockid, flags = 0;
@@ -109,8 +109,7 @@ void sleepy_penguin_init_timerfd(void)
 
 	mSleepyPenguin = rb_define_module("SleepyPenguin");
 	cTimerFD = rb_define_class_under(mSleepyPenguin, "TimerFD", rb_cIO);
-	rb_define_singleton_method(cTimerFD, "create", create, -1);
-	rb_define_singleton_method(cTimerFD, "new", create, -1);
+	rb_define_singleton_method(cTimerFD, "new", s_new, -1);
 	rb_define_const(cTimerFD, "REALTIME", UINT2NUM(CLOCK_REALTIME));
 	rb_define_const(cTimerFD, "MONOTONIC", UINT2NUM(CLOCK_MONOTONIC));
 	rb_define_const(cTimerFD, "ABSTIME", UINT2NUM(TFD_TIMER_ABSTIME));
