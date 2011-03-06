@@ -21,4 +21,14 @@ class TestSignalFD < Test::Unit::TestCase
     assert_equal pid, siginfo.pid
     assert Process.waitpid2(pid)[1].success?
   end
+
+  def test_update
+    assert_nothing_raised do
+      @sfd = SignalFD.new
+      @sfd.update! Signal.list["USR1"]
+      @sfd.update! [ "USR1", Signal.list["USR2"] ]
+      @sfd.update! [ "USR1", :USR2 ]
+      @sfd.update! [ Signal.list["USR1"], Signal.list["USR2"] ]
+    end
+  end
 end if RUBY_VERSION =~ %r{\A1\.9} && defined?(SleepyPenguin::SignalFD)

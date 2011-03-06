@@ -57,23 +57,48 @@ static void value2sigset(sigset_t *mask, VALUE set)
 	}
 }
 
-static void sfd_args(int *flags, sigset_t *mask, int argc, VALUE *argv)
+static int cur_flags(int fd)
 {
-	VALUE vmask, vflags;
-
-	rb_scan_args(argc, argv, "02", &vmask, &vflags);
-	*flags = NIL_P(vflags) ? 0 : NUM2INT(vflags);
-	value2sigset(mask, vmask);
+	int rv = 0;
+#ifdef SFD_CLOEXEC
+	{
+		int flags = fcntl(fd, F_GETFD);
+		if (flags == -1) rb_sys_fail("fcntl(F_GETFD)");
+		if (flags & FD_CLOEXEC) rv |= SFD_CLOEXEC;
+	}
+#endif
+#ifdef SFD_NONBLOCK
+	{
+		int flags = fcntl(fd, F_GETFL);
+		if (flags == -1) rb_sys_fail("fcntl(F_GETFL)");
+		if (flags & O_NONBLOCK) rv |= SFD_NONBLOCK;
+	}
+#endif
+	return rv;
 }
 
+/*
+ * call-seq:
+ *	include SleepyPenguin
+ *	sfd = SignalFD.new
+ *	...
+ *	sfd.update! signals
+ *	sfd.update! signals, flags
+ *
+ * Updates the signal mask watched for by the given +sigfd+.
+ * Takes the same arguments as SignalFD.new.
+ */
 static VALUE update_bang(int argc, VALUE *argv, VALUE self)
 {
+	VALUE vmask, vflags;
 	sigset_t mask;
 	int flags;
 	int fd = my_fileno(self);
 	int rc;
 
-	sfd_args(&flags, &mask, argc, argv);
+	rb_scan_args(argc, argv, "02", &vmask, &vflags);
+	flags = NIL_P(vflags) ? cur_flags(fd) : NUM2INT(vflags);
+	value2sigset(&mask, vmask);
 
 	rc = signalfd(fd, &mask, flags);
 	if (rc == -1)
@@ -81,13 +106,34 @@ static VALUE update_bang(int argc, VALUE *argv, VALUE self)
 	return self;
 }
 
+/*
+ * call-seq:
+ *	include SleepyPenguin
+ *	SignalFD.new -> SignalFD IO object
+ *	SignalFD.new(signals) -> SignalFD IO object
+ *	SignalFD.new(signals, flags) -> SignalFD IO object
+ *
+ * Creates a new SignalFD object to watch given +signals+ with +flags+.
+ *
+ * +signals+ is an Array of signal names or a single signal name that
+ * Signal.trap understands:
+ *
+ *	signals = [ :USR1, "USR2" ]
+ *	signals = :USR1
+ *	signals = 15
+ *
+ * +flags+ is a mask of SignalFD::CLOEXEC and SignalFD::NONBLOCK
+ */
 static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 {
+	VALUE vmask, vflags;
 	sigset_t mask;
 	int flags;
 	int fd;
 
-	sfd_args(&flags, &mask, argc, argv);
+	rb_scan_args(argc, argv, "02", &vmask, &vflags);
+	flags = NIL_P(vflags) ? 0 : NUM2INT(vflags);
+	value2sigset(&mask, vmask);
 
 	fd = signalfd(-1, &mask, flags);
 	if (fd == -1) {
@@ -147,6 +193,12 @@ static ssize_t do_sfd_read(struct signalfd_siginfo *ssi)
 }
 #endif /* ! HAVE_RB_THREAD_BLOCKING_REGION */
 
+/*
+ * call-seq:
+ *	sfd.take -> SignalFD::SigInfo object
+ *
+ * Returns the next SigInfo object representing a received signal.
+ */
 static VALUE sfd_take(VALUE self)
 {
 	VALUE rv = ssi_alloc(cSigInfo);
@@ -205,6 +257,7 @@ void sleepy_penguin_init_signalfd(void)
 #endif
 
 	rb_define_method(cSignalFD, "take", sfd_take, 0);
+	rb_define_method(cSignalFD, "update!", update_bang, -1);
 	id_for_fd = rb_intern("for_fd");
 	ssi_members = rb_ary_new();
 	rb_define_const(cSigInfo, "MEMBERS", ssi_members);
