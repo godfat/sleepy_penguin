@@ -64,7 +64,13 @@ fcntl_err:
 # define inotify_init1 my_inotify_init1
 #endif /* HAVE_INOTIFY_INIT1 */
 
-static VALUE s_init(int argc, VALUE *argv, VALUE klass)
+/*
+ * call-seq:
+ *	include SleepyPenguin
+ *	Inotify.new     -> Inotify IO object
+ *	Inotify.new(Inotify::CLOEXEC) -> Inotify IO object
+ */
+static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 {
 	VALUE _flags, rv;
 	int flags;
@@ -90,6 +96,14 @@ static VALUE s_init(int argc, VALUE *argv, VALUE klass)
 	return rv;
 }
 
+/*
+ * call-seq:
+ * 	include SleepyPenguin
+ *	in.add_watch("/path/to/something", Inotify::MODIFY) -> Integer
+ *
+ * Adds a watch on an object specified by its mask, returns an unsigned
+ * Integer watch descriptor.
+ */
 static VALUE add_watch(VALUE self, VALUE path, VALUE vmask)
 {
 	int fd = my_fileno(self);
@@ -108,6 +122,13 @@ static VALUE add_watch(VALUE self, VALUE path, VALUE vmask)
 	return UINT2NUM((uint32_t)rc);
 }
 
+/*
+ * call-seq:
+ * 	in.rm_watch(watch_descriptor) -> 0
+ *
+ * Removes a watch based on a watch descriptor Integer.  The watch
+ * descriptor is a return value given by Inotify#add_watch
+ */
 static VALUE rm_watch(VALUE self, VALUE vwd)
 {
 	uint32_t wd = NUM2UINT(vwd);
@@ -137,6 +158,14 @@ static VALUE event_new(struct inotify_event *e)
 	return rb_struct_new(cEvent, wd, mask, cookie, name);
 }
 
+/*
+ * call-seq:
+ *
+ * 	in.take -> Inotify::Event
+ * 	in.take(true) -> Inotify::Event or nil
+ *
+ * Returns the next Inotify::Event processed.
+ */
 static VALUE take(int argc, VALUE *argv, VALUE self)
 {
 	int fd = my_fileno(self);
@@ -160,6 +189,7 @@ static VALUE take(int argc, VALUE *argv, VALUE self)
 		set_nonblock(fd);
 		r = read(fd, ptr, len);
 		if (r == 0 || (r < 0 && errno == EINVAL)) {
+			/* resize internal buffer */
 			int newlen;
 			if (len > 0x10000)
 				rb_raise(rb_eRuntimeError, "path too long");
@@ -177,6 +207,7 @@ static VALUE take(int argc, VALUE *argv, VALUE self)
 				rb_sys_fail("read(inotify)");
 			}
 		} else {
+			/* buffer in userspace to minimize read() calls */
 			end = (struct inotify_event *)((char *)ptr + r);
 			for (e = ptr; e < end; ) {
 				VALUE event = event_new(e);
@@ -193,6 +224,12 @@ static VALUE take(int argc, VALUE *argv, VALUE self)
 	return rv;
 }
 
+/*
+ * call-seq:
+ *	inotify_event.events => [ :MOVED_TO, ... ]
+ *
+ * Returns an array of symbolic event names based on the contents of #mask
+ */
 static VALUE events(VALUE self)
 {
 	long len = RARRAY_LEN(checks);
@@ -213,11 +250,15 @@ static VALUE events(VALUE self)
 	return rv;
 }
 
+/*
+ * Ensure duplicated Inotify objects do not share read buffers,
+ * but do share the userspace Array buffer.
+ */
 static VALUE init_copy(VALUE dest, VALUE orig)
 {
 	VALUE tmp;
 
-	dest = rb_call_super(1, &orig);
+	dest = rb_call_super(1, &orig); /* copy all other ivars as-is */
 	rb_ivar_set(dest, id_inotify_buf, rb_str_new(0, 128));
 
 	return dest;
@@ -236,7 +277,7 @@ void sleepy_penguin_init_inotify(void)
 	cEvent = rb_struct_define(NULL, "wd", "mask", "cookie", "name", NULL);
 	rb_define_const(cInotify, "Event", cEvent);
 	rb_define_method(cEvent, "events", events, 0);
-	rb_define_singleton_method(cInotify, "new", s_init, -1);
+	rb_define_singleton_method(cInotify, "new", s_new, -1);
 	id_for_fd = rb_intern("for_fd");
 	id_inotify_buf = rb_intern("@inotify_buf");
 	id_inotify_tmp = rb_intern("@inotify_tmp");
