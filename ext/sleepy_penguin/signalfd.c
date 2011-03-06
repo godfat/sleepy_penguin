@@ -147,7 +147,7 @@ static ssize_t do_sfd_read(struct signalfd_siginfo *ssi)
 }
 #endif /* ! HAVE_RB_THREAD_BLOCKING_REGION */
 
-static VALUE sfd_gets(VALUE self)
+static VALUE sfd_take(VALUE self)
 {
 	VALUE rv = ssi_alloc(cSigInfo);
 	struct signalfd_siginfo *ssi = DATA_PTR(rv);
@@ -204,7 +204,7 @@ void sleepy_penguin_init_signalfd(void)
 	rb_define_const(cSignalFD, "CLOEXEC", INT2NUM(SFD_CLOEXEC));
 #endif
 
-	rb_define_method(cSignalFD, "gets", sfd_gets, 0);
+	rb_define_method(cSignalFD, "take", sfd_take, 0);
 	id_for_fd = rb_intern("for_fd");
 	ssi_members = rb_ary_new();
 	rb_define_const(cSigInfo, "MEMBERS", ssi_members);
