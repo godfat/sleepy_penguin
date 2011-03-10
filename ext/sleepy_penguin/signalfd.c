@@ -242,11 +242,11 @@ void sleepy_penguin_init_signalfd(void)
 	 * an alternative to Signal.trap that may be monitored using
 	 * IO.select or Epoll.
 	 *
-         * SignalFD appears interact unpredictably with YARV (Ruby 1.9) signal
-         * handling and has been unreliable in our testing. Since Ruby has a
-         * decent signal handling interface anyways, this class is less useful
-         * than signalfd() in a C-only environment.
-         *
+	 * SignalFD appears interact unpredictably with YARV (Ruby 1.9) signal
+	 * handling and has been unreliable in our testing. Since Ruby has a
+	 * decent signal handling interface anyways, this class is less useful
+	 * than signalfd() in a C-only environment.
+	 *
 	 * It is not supported at all under (Matz) Ruby 1.8.
 	 */
 	cSignalFD = rb_define_class_under(mSleepyPenguin, "SignalFD", rb_cIO);
