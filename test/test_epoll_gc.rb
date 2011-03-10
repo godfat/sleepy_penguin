@@ -44,4 +44,4 @@ class TestEpollGC < Test::Unit::TestCase
       end
     end while true
   end
-end
+end if ENV["GC_STRESS"].to_i != 0
