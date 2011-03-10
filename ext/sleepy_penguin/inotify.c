@@ -42,7 +42,7 @@ static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 
 /*
  * call-seq:
- *	in.add_watch(path, flags) -> Integer
+ *	ino.add_watch(path, flags) -> Integer
  *
  * Adds a watch on an object specified by its +mask+, returns an unsigned
  * Integer watch descriptor.  +flags+ may be a mask of the following
@@ -100,7 +100,7 @@ static VALUE add_watch(VALUE self, VALUE path, VALUE vmask)
 
 /*
  * call-seq:
- *	in.rm_watch(watch_descriptor) -> 0
+ *	ino.rm_watch(watch_descriptor) -> 0
  *
  * Removes a watch based on a watch descriptor Integer.  The watch
  * descriptor is a return value given by Inotify#add_watch
@@ -149,7 +149,7 @@ static VALUE inread(void *ptr)
 
 /*
  * call-seq:
- *	in.take([nonblock]) -> Inotify::Event or nil
+ *	ino.take([nonblock]) -> Inotify::Event or nil
  *
  * Returns the next Inotify::Event processed.  May return +nil+ if +nonblock+
  * is +true+.
