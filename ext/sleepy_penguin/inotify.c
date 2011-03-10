@@ -3,6 +3,11 @@
 #include <sys/inotify.h>
 #include <sys/ioctl.h>
 #include "missing_inotify.h"
+#if defined(RFILE) && defined(HAVE_ST_FD) && \
+    defined(HAVE_RB_THREAD_BLOCKING_REGION)
+#  define NOGVL_CLOSE
+#endif
+
 static ID id_for_fd, id_inotify_buf, id_inotify_tmp, id_mask;
 static VALUE cEvent, checks;
 
@@ -265,7 +270,7 @@ static VALUE init_copy(VALUE dest, VALUE orig)
 
 /*
  * call-seq:
- * 	ino.each { |event| ... } -> ino
+ *	ino.each { |event| ... } -> ino
  *
  * Yields each Inotify::Event received in a blocking fashion.
  */
@@ -278,6 +283,36 @@ static VALUE each(VALUE self)
 
 	return self;
 }
+
+#if defined(NOGVL_CLOSE)
+static VALUE fptr_close(void *ptr)
+{
+	rb_io_t *fptr = ptr;
+	return (VALUE)close(fptr->fd);
+}
+
+/*
+ * call-seq:
+ *	ino.close	-> nil
+ *
+ * Closes the underlying file descriptor and releases resources used by the
+ * kernel.  Unlike other file descriptors, Inotify descriptors can take
+ * a long time to close(2).  Calling this explicitly releases the GVL under
+ * Ruby 1.9
+ */
+static VALUE nogvl_close(VALUE self)
+{
+	rb_io_t *fptr;
+
+	GetOpenFile(self, fptr);
+
+	if ((int)rb_sp_io_region(fptr_close, fptr) < 0)
+		rb_sys_fail("close(inotify)");
+	fptr->fd = -1;
+
+	return Qnil;
+}
+#endif /* NOGVL_CLOSE */
 
 void sleepy_penguin_init_inotify(void)
 {
@@ -311,6 +346,9 @@ void sleepy_penguin_init_inotify(void)
 	rb_define_method(cInotify, "initialize_copy", init_copy, 1);
 	rb_define_method(cInotify, "take", take, -1);
 	rb_define_method(cInotify, "each", each, 0);
+#ifdef NOGVL_CLOSE
+	rb_define_method(cInotify, "close", nogvl_close, 0);
+#endif
 
 	/*
 	 * Document-class: SleepyPenguin::Inotify::Event
