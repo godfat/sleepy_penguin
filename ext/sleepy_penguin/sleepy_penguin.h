@@ -18,11 +18,6 @@ int rb_sp_io_closed(VALUE io);
 int rb_sp_fileno(VALUE io);
 void rb_sp_set_nonblock(int fd);
 
-#define get_uflags rb_sp_get_uflags
-#define get_flags rb_sp_get_flags
-#define my_io_closed rb_sp_io_closed
-#define my_fileno rb_sp_fileno
-
 #define NODOC_CONST(klass,name,value) \
   rb_define_const((klass),(name),(value))
 #endif /* SLEEPY_PENGUIN_H */
