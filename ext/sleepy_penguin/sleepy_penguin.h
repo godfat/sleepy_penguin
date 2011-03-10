@@ -23,7 +23,7 @@ static inline VALUE rb_sp_io_region(rb_blocking_function_t *func, void *data)
 {
 	return rb_thread_blocking_region(func, data, RUBY_UBF_IO, 0);
 }
-#  define blocking_io_prepare(fd) for(;0;)
+#  define blocking_io_prepare(fd) ((void)(fd))
 #else
 typedef VALUE rb_blocking_function_t(void *);
 VALUE rb_sp_io_region(rb_blocking_function_t *func, void *data);

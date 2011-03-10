@@ -45,22 +45,22 @@ class TestEventFD < Test::Unit::TestCase
 
   def test_incr_value
     efd = EventFD.new(0)
-    assert_nil efd.incr(1)
+    assert_equal true, efd.incr(1)
     assert_equal 1, efd.value
 
-    assert_raises(Errno::EAGAIN) { efd.value_nonblock }
-    assert_nil efd.incr(9)
-    assert_equal 9, efd.value_nonblock
+    assert_nil efd.value(true)
+    assert_equal true, efd.incr(9)
+    assert_equal 9, efd.value(true)
 
-    assert_nil efd.incr(0xfffffffffffffffe)
-    assert_raises(Errno::EAGAIN) { efd.incr_nonblock 1 }
+    assert_equal true, efd.incr(0xfffffffffffffffe)
+    assert_equal false, efd.incr(1, true)
   end
 
   def test_incr_value_semaphore
     efd = EventFD.new(6, :SEMAPHORE)
     6.times { assert_equal 1, efd.value }
-    assert_raises(Errno::EAGAIN) { efd.value_nonblock }
-    assert_nothing_raised { efd.incr(1) }
+    assert_nil efd.value(true)
+    assert_equal true, efd.incr(1)
     assert_equal 1, efd.value
   end
 end if defined?(SleepyPenguin::EventFD)

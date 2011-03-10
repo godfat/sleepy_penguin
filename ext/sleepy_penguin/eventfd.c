@@ -66,35 +66,42 @@ static VALUE efd_read(void *_args)
 
 /*
  * call-seq:
- *	efd.incr(integer_value)	-> nil
+ *	efd.incr(integer_value[, nonblock ])	-> true or nil
  *
  * Increments the internal counter by +integer_value+ which is an unsigned
- * Integer value.  This will block if the internal counter will overflow
- * the value of EventFD::MAX
+ * Integer value.
+ *
+ * If +nonblock+ is specified and true, this will return +nil+ if the
+ * internal counter will overflow the value of EventFD::MAX.
+ * Otherwise it will block until the counter may be incremented without
+ * overflowing.
  */
-static VALUE incr(VALUE self, VALUE value)
+static VALUE incr(int argc, VALUE *argv, VALUE self)
 {
 	struct efd_args x;
 	ssize_t w;
+	VALUE value, nonblock;
 
+	rb_scan_args(argc, argv, "11", &value, &nonblock);
 	x.fd = rb_sp_fileno(self);
-	blocking_io_prepare(x.fd);
+	RTEST(nonblock) ? rb_sp_set_nonblock(x.fd) : blocking_io_prepare(x.fd);
 	x.val = (uint64_t)NUM2ULL(value);
-
 retry:
 	w = (ssize_t)rb_sp_io_region(efd_write, &x);
 	if (w == -1) {
+		if (errno == EAGAIN && RTEST(nonblock))
+			return Qfalse;
 		if (rb_io_wait_writable(x.fd))
 			goto retry;
 		rb_sys_fail("write(eventfd)");
 	}
 
-	return Qnil;
+	return Qtrue;
 }
 
 /*
  * call-seq:
- *	efd.value	-> Integer
+ *	efd.value([nonblock])	-> Integer or nil
  *
  * If not created as a semaphore, returns the current value and resets
  * the counter to zero.
@@ -103,69 +110,29 @@ retry:
  * and returns +1+.
  *
  * If the counter is zero at the time of the call, this will block until
- * the counter becomes non-zero.
+ * the counter becomes non-zero unless +nonblock+ is +true+, in which
+ * case it returns +nil+.
  */
-static VALUE getvalue(VALUE self)
+static VALUE getvalue(int argc, VALUE argv, VALUE self)
 {
 	struct efd_args x;
 	ssize_t w;
+	VALUE nonblock;
 
+	rb_scan_args(argc, argv, "01", &nonblock);
 	x.fd = rb_sp_fileno(self);
-	blocking_io_prepare(x.fd);
-
+	RTEST(nonblock) ? rb_sp_set_nonblock(x.fd) : blocking_io_prepare(x.fd);
 retry:
 	w = (ssize_t)rb_sp_io_region(efd_read, &x);
 	if (w == -1) {
+		if (errno == EAGAIN && RTEST(nonblock))
+			return Qnil;
 		if (rb_io_wait_readable(x.fd))
 			goto retry;
 		rb_sys_fail("read(eventfd)");
 	}
 
 	return ULL2NUM(x.val);
-}
-
-/*
- * call-seq:
- *	efd.value_nonblock	-> Integer
- *
- * Exactly like EventFD#value, but forces the EventFD object
- * into non-blocking mode if it is not already and raises Errno::EAGAIN
- * if it is not ready for reading.
- */
-static VALUE value_nonblock(VALUE self)
-{
-	int fd = rb_sp_fileno(self);
-	uint64_t val;
-	ssize_t r;
-
-	rb_sp_set_nonblock(fd);
-	r = read(fd, &val, sizeof(uint64_t));
-	if (r == -1)
-		rb_sys_fail("read(eventfd)");
-
-	return ULL2NUM(val);
-}
-
-/*
- * call-seq:
- *	efd.incr_nonblock(integer_value)	-> nil
- *
- * Exactly like EventFD#incr, but forces the EventFD object
- * into non-blocking mode if it is not already and raises Errno::EAGAIN
- * if it may overflow.
- */
-static VALUE incr_nonblock(VALUE self, VALUE value)
-{
-	int fd = rb_sp_fileno(self);
-	uint64_t val = (uint64_t)NUM2ULL(value);
-	ssize_t w;
-
-	rb_sp_set_nonblock(fd);
-	w = write(fd, &val, sizeof(uint64_t));
-	if (w == -1)
-		rb_sys_fail("write(eventfd)");
-
-	return Qnil;
 }
 
 void sleepy_penguin_init_eventfd(void)
@@ -201,10 +168,8 @@ void sleepy_penguin_init_eventfd(void)
 #ifdef EFD_SEMAPHORE
 	NODOC_CONST(cEventFD, "SEMAPHORE", INT2NUM(EFD_SEMAPHORE));
 #endif
-	rb_define_method(cEventFD, "value", getvalue, 0);
-	rb_define_method(cEventFD, "incr", incr, 1);
-	rb_define_method(cEventFD, "value_nonblock", value_nonblock, 0);
-	rb_define_method(cEventFD, "incr_nonblock", incr_nonblock, 1);
+	rb_define_method(cEventFD, "value", getvalue, -1);
+	rb_define_method(cEventFD, "incr", incr, -1);
 	id_for_fd = rb_intern("for_fd");
 }
 #endif /* HAVE_SYS_EVENTFD_H */
