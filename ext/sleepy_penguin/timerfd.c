@@ -4,6 +4,22 @@
 #include "value2timespec.h"
 static ID id_for_fd;
 
+/*
+ * call-seq:
+ *	TimerFD.new([clockid[, flags]]) -> TimerFD IO object
+ *
+ * Creates a new timer as an IO object.
+ *
+ * If set +clockid+ must be be one of the following:
+ * - :REALTIME - use the settable clock
+ * - :MONOTONIC - use the non-settable clock unaffected by manual changes
+ *
+ * +clockid+ defaults to :MONOTONIC if unspecified
+ * +flags+ may be any or none of the following:
+ *
+ * - :CLOEXEC - set the close-on-exec flag on the new object
+ * - :NONBLOCK - set the non-blocking I/O flag on the new object
+ */
 static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 {
 	VALUE cid, fl;
@@ -35,6 +51,18 @@ static VALUE itimerspec2ary(struct itimerspec *its)
 	return rb_ary_new3(2, interval, value);
 }
 
+/*
+ * call-seq:
+ *	tfd.settime(flags, interval, value) -> [ old_interval, old_value ]
+ *
+ * Arms (starts) or disarms (stops) the timer referred by the TimerFD object
+ * and returns the old value of the timer.
+ *
+ * +flags+ is either zero (or nil) to start a relative timer or :ABSTIME
+ * to start an absolute timer.  If the +interval+ is zero, the timer fires
+ * only once, otherwise the timer is fired every +interval+ seconds.
+ * +value+ is the time of the initial expiration in seconds.
+ */
 static VALUE settime(VALUE self, VALUE fl, VALUE interval, VALUE value)
 {
 	int fd = rb_sp_fileno(self);
@@ -50,6 +78,12 @@ static VALUE settime(VALUE self, VALUE fl, VALUE interval, VALUE value)
 	return itimerspec2ary(&old);
 }
 
+/*
+ * call-seq:
+ *	tfd#gettime	-> [ interval, value ]
+ *
+ * Returns the current +interval+ and +value+ of the timer as an Array.
+ */
 static VALUE gettime(VALUE self)
 {
 	int fd = rb_sp_fileno(self);
@@ -71,6 +105,13 @@ static VALUE tfd_read(void *args)
 	return (VALUE)r;
 }
 
+/*
+ * call-seq:
+ *	tfd.expirations		-> Integer
+ *
+ * Returns the number of expirations that have occurred.  This will block
+ * if no expirations have occurred at the time of the call.
+ */
 static VALUE expirations(VALUE self)
 {
 	ssize_t r;
@@ -108,16 +149,24 @@ void sleepy_penguin_init_timerfd(void)
 	VALUE mSleepyPenguin, cTimerFD;
 
 	mSleepyPenguin = rb_define_module("SleepyPenguin");
+
+	/*
+	 * Document-class: SleepyPenguin::TimerFD
+	 *
+	 * TimerFD exposes kernel timers as IO objects that may be monitored
+	 * by IO.select or Epoll.  IO#close disarms the timers and returns
+	 * resources back to the kernel.
+	 */
 	cTimerFD = rb_define_class_under(mSleepyPenguin, "TimerFD", rb_cIO);
 	rb_define_singleton_method(cTimerFD, "new", s_new, -1);
-	rb_define_const(cTimerFD, "REALTIME", UINT2NUM(CLOCK_REALTIME));
-	rb_define_const(cTimerFD, "MONOTONIC", UINT2NUM(CLOCK_MONOTONIC));
-	rb_define_const(cTimerFD, "ABSTIME", UINT2NUM(TFD_TIMER_ABSTIME));
+	NODOC_CONST(cTimerFD, "REALTIME", UINT2NUM(CLOCK_REALTIME));
+	NODOC_CONST(cTimerFD, "MONOTONIC", UINT2NUM(CLOCK_MONOTONIC));
+	NODOC_CONST(cTimerFD, "ABSTIME", UINT2NUM(TFD_TIMER_ABSTIME));
 #ifdef TFD_NONBLOCK
-	rb_define_const(cTimerFD, "NONBLOCK", UINT2NUM(TFD_NONBLOCK));
+	NODOC_CONST(cTimerFD, "NONBLOCK", UINT2NUM(TFD_NONBLOCK));
 #endif
 #ifdef TFD_CLOEXEC
-	rb_define_const(cTimerFD, "CLOEXEC", UINT2NUM(TFD_CLOEXEC));
+	NODOC_CONST(cTimerFD, "CLOEXEC", UINT2NUM(TFD_CLOEXEC));
 #endif
 
 	rb_define_method(cTimerFD, "settime", settime, 3);

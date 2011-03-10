@@ -66,9 +66,11 @@ fcntl_err:
 
 /*
  * call-seq:
- *	include SleepyPenguin
- *	Inotify.new     -> Inotify IO object
- *	Inotify.new(Inotify::CLOEXEC) -> Inotify IO object
+ *	Inotify.new([flags])     -> Inotify IO object
+ *
+ * Flags may be any of the following as an Array of Symbols or Integer mask:
+ * - :NONBLOCK - sets the non-blocking flag on the descriptor watched.
+ * - :CLOEXEC - sets the close-on-exec flag
  */
 static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 {
@@ -98,11 +100,43 @@ static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 
 /*
  * call-seq:
- * 	include SleepyPenguin
- *	in.add_watch("/path/to/something", Inotify::MODIFY) -> Integer
+ *	in.add_watch(path, flags) -> Integer
  *
- * Adds a watch on an object specified by its mask, returns an unsigned
- * Integer watch descriptor.
+ * Adds a watch on an object specified by its +mask+, returns an unsigned
+ * Integer watch descriptor.  +flags+ may be a mask of the following
+ * Inotify constants or array of their symbolic names.
+ *
+ * - :ACCESS - File was accessed (read) (*)
+ * - :ATTRIB - Metadata changed.
+ * - :CLOSE_WRITE - File opened for writing was closed (*)
+ * - :CLOSE_NOWRITE - File not opened for writing was closed (*)
+ * - :CREATE - File/directory created in watched directory (*)
+ * - :DELETE - File/directory deleted from watched directory (*)
+ * - :DELETE_SELF - Watched file/directory was itself deleted
+ * - :MODIFY - File was modified (*)
+ * - :MOVE_SELF - Watched file/directory was itself moved
+ * - :MOVED_FROM - File moved out of watched directory (*)
+ * - :MOVED_TO - File moved into watched directory (*)
+ * - :OPEN - File was opened (*)
+ *
+ * When monitoring a directory, the events marked with an asterisk (*)
+ * above can occur for files in the directory, in which case the name
+ * field in the Event structure identifies the name of the file in the
+ * directory.
+ *
+ * Shortcut flags:
+ *
+ * - :ALL_EVENTS - a bitmask of all the above events
+ * - :MOVE - :MOVED_FROM or :MOVED_TO
+ * - :CLOSE - :CLOSE_WRITE or :CLOSE_NOWRITE
+ *
+ * The following watch attributes may also be included in flags:
+ *
+ * - :DONT_FOLLOW - don't dereference symlinks (since Linux 2.6.15)
+ * - :EXCL_UNLINK - don't generate unlink events for children (since 2.6.36)
+ * - :MASK_ADD - add events to an existing watch mask if it exists
+ * - :ONESHOT - monitor for one event and then remove it from the watch
+ * - :ONLYDIR - only watch the pathname if it is a directory
  */
 static VALUE add_watch(VALUE self, VALUE path, VALUE vmask)
 {
@@ -124,7 +158,7 @@ static VALUE add_watch(VALUE self, VALUE path, VALUE vmask)
 
 /*
  * call-seq:
- * 	in.rm_watch(watch_descriptor) -> 0
+ *	in.rm_watch(watch_descriptor) -> 0
  *
  * Removes a watch based on a watch descriptor Integer.  The watch
  * descriptor is a return value given by Inotify#add_watch
@@ -160,11 +194,10 @@ static VALUE event_new(struct inotify_event *e)
 
 /*
  * call-seq:
+ *	in.take([nonblock]) -> Inotify::Event or nil
  *
- * 	in.take -> Inotify::Event
- * 	in.take(true) -> Inotify::Event or nil
- *
- * Returns the next Inotify::Event processed.
+ * Returns the next Inotify::Event processed.  May return +nil+ if +nonblock+
+ * is +true+.
  */
 static VALUE take(int argc, VALUE *argv, VALUE self)
 {
@@ -228,7 +261,8 @@ static VALUE take(int argc, VALUE *argv, VALUE self)
  * call-seq:
  *	inotify_event.events => [ :MOVED_TO, ... ]
  *
- * Returns an array of symbolic event names based on the contents of #mask
+ * Returns an array of symbolic event names based on the contents of
+ * the +mask+ field.
  */
 static VALUE events(VALUE self)
 {
@@ -251,8 +285,12 @@ static VALUE events(VALUE self)
 }
 
 /*
- * Ensure duplicated Inotify objects do not share read buffers,
- * but do share the userspace Array buffer.
+ * call-seq:
+ *	inotify.dup	-> another Inotify object
+ *
+ * Duplicates an Inotify object, allowing it to be used in a blocking
+ * fashion in another thread.  Ensures duplicated Inotify objects do
+ * not share read buffers, but do share the userspace Array buffer.
  */
 static VALUE init_copy(VALUE dest, VALUE orig)
 {
@@ -269,13 +307,50 @@ void sleepy_penguin_init_inotify(void)
 	VALUE mSleepyPenguin, cInotify;
 
 	mSleepyPenguin = rb_define_module("SleepyPenguin");
+
+	/*
+	 * Document-class: SleepyPenguin::Inotify
+	 *
+	 * Inotify objects are used for monitoring file system events,
+	 * it can monitor individual files or directories.  When a directory
+	 * is monitored it will return events for the directory itself and
+	 * all files inside the directory.
+	 *
+	 * Inotify IO objects can be watched using IO.select or Epoll.
+	 * IO#close may be called on the object when it is no longer needed.
+	 *
+	 * Inotify is available on Linux 2.6.13 or later.
+	 */
 	cInotify = rb_define_class_under(mSleepyPenguin, "Inotify", rb_cIO);
 	rb_define_method(cInotify, "add_watch", add_watch, 2);
 	rb_define_method(cInotify, "rm_watch", rm_watch, 1);
 	rb_define_method(cInotify, "initialize_copy", init_copy, 1);
 	rb_define_method(cInotify, "take", take, -1);
-	cEvent = rb_struct_define(NULL, "wd", "mask", "cookie", "name", NULL);
-	rb_define_const(cInotify, "Event", cEvent);
+
+	/*
+	 * Document-class: SleepyPenguin::Inotify::Event
+	 *
+	 * Returned by SleepyPenguin::Inotify#take.  It is a Struct with the
+	 * following elements:
+	 *
+	 * - wd   - watch descriptor (unsigned Integer)
+	 * - mask - mask of events (unsigned Integer)
+	 * - cookie - unique cookie associated related events (for rename)
+	 * - name - optional string name (may be nil)
+	 *
+	 * The mask is a bitmask of the event flags accepted by
+	 * Inotify#add_watch and may also include the following flags:
+	 *
+	 * - :IGNORED - watch was removed
+	 * - :ISDIR - event occured on a directory
+	 * - :Q_OVERFLOW - event queue overflowed (wd is -1)
+	 * - :UNMOUNT - filesystem containing watched object was unmounted
+	 *
+	 * Use the Event#events method to get an array of symbols for the
+	 * matched events.
+	 */
+	cEvent = rb_struct_define("Event", "wd", "mask", "cookie", "name", 0);
+	cEvent = rb_define_class_under(cInotify, "Event", cEvent);
 	rb_define_method(cEvent, "events", events, 0);
 	rb_define_singleton_method(cInotify, "new", s_new, -1);
 	id_for_fd = rb_intern("for_fd");
@@ -291,8 +366,6 @@ void sleepy_penguin_init_inotify(void)
 	rb_ary_push(checks, ID2SYM(rb_intern(#x))); \
 	rb_ary_push(checks, val); \
 } while (0)
-
-	rb_define_const(cInotify, "FIONREAD", INT2NUM(FIONREAD));
 
 	IN(ALL_EVENTS);
 
@@ -328,7 +401,8 @@ void sleepy_penguin_init_inotify(void)
 	IN(ONESHOT);
 
 /* for inotify_init1() */
-	rb_define_const(cInotify, "NONBLOCK", INT2NUM(IN_NONBLOCK));
-	rb_define_const(cInotify, "CLOEXEC", INT2NUM(IN_CLOEXEC));
+
+	NODOC_CONST(cInotify, "NONBLOCK", INT2NUM(IN_NONBLOCK));
+	NODOC_CONST(cInotify, "CLOEXEC", INT2NUM(IN_CLOEXEC));
 }
 #endif /* HAVE_SYS_INOTIFY_H */

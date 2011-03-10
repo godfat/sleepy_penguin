@@ -7,4 +7,7 @@ lib
 ext/sleepy_penguin/init.c
 ext/sleepy_penguin/epoll.c
 ext/sleepy_penguin/eventfd.c
+ext/sleepy_penguin/init.c
+ext/sleepy_penguin/inotify.c
+ext/sleepy_penguin/signalfd.c
 ext/sleepy_penguin/timerfd.c

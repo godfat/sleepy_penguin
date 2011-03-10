@@ -79,13 +79,9 @@ static int cur_flags(int fd)
 
 /*
  * call-seq:
- *	include SleepyPenguin
- *	sfd = SignalFD.new
- *	...
- *	sfd.update! signals
- *	sfd.update! signals, flags
+ *	sfd.update!(signals[, flags])	-> sfd
  *
- * Updates the signal mask watched for by the given +sigfd+.
+ * Updates the signal mask watched for by the given +sfd+.
  * Takes the same arguments as SignalFD.new.
  */
 static VALUE update_bang(int argc, VALUE *argv, VALUE self)
@@ -108,10 +104,7 @@ static VALUE update_bang(int argc, VALUE *argv, VALUE self)
 
 /*
  * call-seq:
- *	include SleepyPenguin
- *	SignalFD.new -> SignalFD IO object
- *	SignalFD.new(signals) -> SignalFD IO object
- *	SignalFD.new(signals, flags) -> SignalFD IO object
+ *	SignalFD.new(signals[, flags])	-> SignalFD IO object
  *
  * Creates a new SignalFD object to watch given +signals+ with +flags+.
  *
@@ -122,7 +115,11 @@ static VALUE update_bang(int argc, VALUE *argv, VALUE self)
  *	signals = :USR1
  *	signals = 15
  *
- * +flags+ is a mask of SignalFD::CLOEXEC and SignalFD::NONBLOCK
+ * Starting with Linux 2.6.27, +flags+ may be a mask that consists of any
+ * of the following:
+ *
+ * - :CLOEXEC - set the close-on-exec flag on the new object
+ * - :NONBLOCK - set the non-blocking I/O flag on the new object
  */
 static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 {
@@ -155,6 +152,7 @@ static VALUE ssi_alloc(VALUE klass)
 	return Data_Wrap_Struct(klass, NULL, -1, ssi);
 }
 
+/* :nodoc: */
 static VALUE ssi_init(VALUE self)
 {
 	struct signalfd_siginfo *ssi = DATA_PTR(self);
@@ -242,25 +240,61 @@ void sleepy_penguin_init_signalfd(void)
 	VALUE mSleepyPenguin, cSignalFD;
 
 	mSleepyPenguin = rb_define_module("SleepyPenguin");
-	cSignalFD = rb_define_class_under(mSleepyPenguin, "SignalFD", rb_cIO);
-	cSigInfo = rb_define_class_under(cSignalFD, "SigInfo", rb_cObject);
 
+	/*
+	 * Document-class: SleepyPenguin::SignalFD
+	 *
+	 * A SignalFD is an IO object for accepting signals.  It provides
+	 * an alternative to Signal.trap that may be monitored using
+	 * IO.select or Epoll.
+	 *
+	 * It is not supported under (Matz) Ruby 1.8
+	 */
+	cSignalFD = rb_define_class_under(mSleepyPenguin, "SignalFD", rb_cIO);
+
+	/*
+	 * Document-class: SleepyPenguin::SignalFD::SigInfo
+	 *
+	 * This class is returned by SignalFD#take.  It consists of the
+	 * following read-only members:
+	 *
+	 * - signo - signal number
+	 * - errno - error number
+	 * - code - signal code
+	 * - pid - PID of sender
+	 * - uid - real UID of sender
+	 * - fd - file descriptor (SIGIO)
+	 * - tid - kernel timer ID (POSIX timers)
+	 * - band - band event (SIGIO)
+	 * - overrun - POSIX timer overrun count
+	 * - trapno - trap number that caused hardware-generated signal
+	 * - exit status or signal (SIGCHLD)
+	 * - int - integer sent by sigqueue(2)
+	 * - ptr - Pointer sent by sigqueue(2)
+	 * - utime - User CPU time consumed (SIGCHLD)
+	 * - stime - System CPU time consumed (SIGCHLD)
+	 * - addr - address that generated a hardware-generated signal
+	 */
+	cSigInfo = rb_define_class_under(cSignalFD, "SigInfo", rb_cObject);
 	rb_define_alloc_func(cSigInfo, ssi_alloc);
 	rb_define_private_method(cSigInfo, "initialize", ssi_init, 0);
 
+	/* TODO:  si_code values */
+
 	rb_define_singleton_method(cSignalFD, "new", s_new, -1);
 #ifdef SFD_NONBLOCK
-	rb_define_const(cSignalFD, "NONBLOCK", INT2NUM(SFD_NONBLOCK));
+	NODOC_CONST(cSignalFD, "NONBLOCK", INT2NUM(SFD_NONBLOCK));
 #endif
 #ifdef SFD_CLOEXEC
-	rb_define_const(cSignalFD, "CLOEXEC", INT2NUM(SFD_CLOEXEC));
+	NODOC_CONST(cSignalFD, "CLOEXEC", INT2NUM(SFD_CLOEXEC));
 #endif
 
 	rb_define_method(cSignalFD, "take", sfd_take, 0);
 	rb_define_method(cSignalFD, "update!", update_bang, -1);
 	id_for_fd = rb_intern("for_fd");
 	ssi_members = rb_ary_new();
-	rb_define_const(cSigInfo, "MEMBERS", ssi_members);
+
+	NODOC_CONST(cSigInfo, "MEMBERS", ssi_members);
 
 #define SSI_READER(FIELD) do { \
 	  rb_define_method(cSigInfo, #FIELD, ssi_##FIELD, 0); \

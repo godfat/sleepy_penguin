@@ -4,6 +4,22 @@
 #include "nonblock.h"
 static ID id_for_fd;
 
+/*
+ * call-seq:
+ *	EventFD.new(initial_value [, flags])	-> EventFD IO object
+ *
+ * Creates an EventFD object.  +initial_value+ is a non-negative Integer
+ * to start the internal counter at.
+ *
+ * Starting with Linux 2.6.27, +flags+ may be a mask that consists of any
+ * of the following:
+ *
+ * - :CLOEXEC - set the close-on-exec flag on the new object
+ * - :NONBLOCK - set the non-blocking I/O flag on the new object
+ *
+ * Since Linux 2.6.30, +flags+ may also include:
+ * - :SEMAPHORE - provides semaphore-like semantics (see EventFD#value)
+ */
 static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 {
 	VALUE _initval, _flags;
@@ -50,6 +66,14 @@ static VALUE efd_read(void *_args)
 	return (VALUE)r;
 }
 
+/*
+ * call-seq:
+ *	efd.incr(integer_value)	-> nil
+ *
+ * Increments the internal counter by +integer_value+ which is an unsigned
+ * Integer value.  This will block if the internal counter will overflow
+ * the value of EventFD::MAX
+ */
 static VALUE incr(VALUE self, VALUE value)
 {
 	struct efd_args x;
@@ -69,6 +93,19 @@ retry:
 	return Qnil;
 }
 
+/*
+ * call-seq:
+ *	efd.value	-> Integer
+ *
+ * If not created as a semaphore, returns the current value and resets
+ * the counter to zero.
+ *
+ * If created as a semaphore, this decrements the counter value by one
+ * and returns one.
+ *
+ * If the counter is zero at the time of the call, this will block until
+ * the counter becomes non-zero.
+ */
 static VALUE getvalue(VALUE self)
 {
 	struct efd_args x;
@@ -125,7 +162,15 @@ retry:
 }
 #endif /* !HAVE_RB_THREAD_BLOCKING_REGION */
 
-static VALUE getvalue_nonblock(VALUE self)
+/*
+ * call-seq:
+ *	efd.value_nonblock	-> Integer
+ *
+ * Exactly like EventFD#value, but forces the EventFD object
+ * into non-blocking mode if it is not already and raises Errno::EAGAIN
+ * if it is not ready for reading.
+ */
+static VALUE value_nonblock(VALUE self)
 {
 	int fd = rb_sp_fileno(self);
 	uint64_t val;
@@ -139,6 +184,14 @@ static VALUE getvalue_nonblock(VALUE self)
 	return ULL2NUM(val);
 }
 
+/*
+ * call-seq:
+ *	efd.incr_nonblock(integer_value)	-> nil
+ *
+ * Exactly like EventFD#incr, but forces the EventFD object
+ * into non-blocking mode if it is not already and raises Errno::EAGAIN
+ * if it may overflow.
+ */
 static VALUE incr_nonblock(VALUE self, VALUE value)
 {
 	int fd = rb_sp_fileno(self);
@@ -158,20 +211,37 @@ void sleepy_penguin_init_eventfd(void)
 	VALUE mSleepyPenguin, cEventFD;
 
 	mSleepyPenguin = rb_define_module("SleepyPenguin");
+
+	/*
+	 * Document-class: SleepyPenguin::EventFD
+	 *
+	 * Applications may use EventFD instead of a pipe in cases where
+	 * a pipe is only used to signal events.  The kernel overhead for
+	 * an EventFD descriptor is much lower than that of a pipe.
+	 *
+	 * As of Linux 2.6.30, an EventFD may also be used as a semaphore.
+	 */
 	cEventFD = rb_define_class_under(mSleepyPenguin, "EventFD", rb_cIO);
 	rb_define_singleton_method(cEventFD, "new", s_new, -1);
+
+	/*
+	 * the maximum value that may be stored in an EventFD,
+	 * currently 0xfffffffffffffffe
+	 */
+	rb_define_const(cEventFD, "MAX", ULL2NUM(0xfffffffffffffffe));
+
 #ifdef EFD_NONBLOCK
-	rb_define_const(cEventFD, "NONBLOCK", INT2NUM(EFD_NONBLOCK));
+	NODOC_CONST(cEventFD, "NONBLOCK", INT2NUM(EFD_NONBLOCK));
 #endif
 #ifdef EFD_CLOEXEC
-	rb_define_const(cEventFD, "CLOEXEC", INT2NUM(EFD_CLOEXEC));
+	NODOC_CONST(cEventFD, "CLOEXEC", INT2NUM(EFD_CLOEXEC));
 #endif
 #ifdef EFD_SEMAPHORE
-	rb_define_const(cEventFD, "SEMAPHORE", INT2NUM(EFD_SEMAPHORE));
+	NODOC_CONST(cEventFD, "SEMAPHORE", INT2NUM(EFD_SEMAPHORE));
 #endif
 	rb_define_method(cEventFD, "value", getvalue, 0);
 	rb_define_method(cEventFD, "incr", incr, 1);
-	rb_define_method(cEventFD, "value_nonblock", getvalue_nonblock, 0);
+	rb_define_method(cEventFD, "value_nonblock", value_nonblock, 0);
 	rb_define_method(cEventFD, "incr_nonblock", incr_nonblock, 1);
 	id_for_fd = rb_intern("for_fd");
 }

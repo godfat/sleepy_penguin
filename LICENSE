@@ -5,8 +5,8 @@ You can redistribute it and/or modify it under the terms of the GNU
 Lesser General Public License (LGPL) as published by the Free Software
 Foundation, version {2.1}[http://www.gnu.org/licenses/lgpl-2.1.txt] or
 or {3}[http://www.gnu.org/licenses/lgpl-3.0.txt] (see link:COPYING).
-The project leader (Eric Wong) reserves the right to relicense raindrops
-under future versions of the LGPL.
+The project leader (Eric Wong) reserves the right to relicense
+sleepy_penguin under future versions of the LGPL.
 
 sleepy_penguin is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of

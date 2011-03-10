@@ -149,10 +149,11 @@ static void ep_check(struct rb_epoll *ep)
 }
 
 /*
- * creates a new Epoll object with an optional +flags+ argument.
- * +flags+ may currently be Epoll::CLOEXEC or +0+ (or +nil+)
- * Epoll::CLOEXEC will be set by default if +nil+ or no
- * argument is passed.
+ * call-seq:
+ *	SleepyPenguin::Epoll.new([flags])	-> Epoll object
+ *
+ * Creates a new Epoll object with an optional +flags+ argument.
+ * +flags+ may currently be +:CLOEXEC+ or +0+ (or +nil+).
  */
 static VALUE init(int argc, VALUE *argv, VALUE self)
 {
@@ -203,8 +204,19 @@ static VALUE ctl(VALUE self, VALUE io, VALUE flags, int op)
 }
 
 /*
- * used to avoid exceptions when your app is too lazy to check
- * what state a descriptor is in
+ * call-seq:
+ *	ep.set(io, flags)	-> 0
+ *
+ * Used to avoid exceptions when your app is too lazy to check
+ * what state a descriptor is in, this sets the epoll descriptor
+ * to watch an +io+ with the given +flags+
+ *
+ * +flags+ may be an array of symbols or an unsigned Integer bit mask:
+ *
+ * - flags = [ :IN, :ET ]
+ * - flags = SleepyPenguin::Epoll::IN | SleepyPenguin::Epoll::ET
+ *
+ * See constants in Epoll for more information.
  */
 static VALUE set(VALUE self, VALUE io, VALUE flags)
 {
@@ -256,9 +268,12 @@ fallback_add:
 }
 
 /*
- * Deletes an +io+ from an epoll set, but returns nil
- * on ENOENT instead of raising an error.  This is useful
- * for apps that do not care to track the status of an
+ * call-seq:
+ *	epoll.delete(io) -> io or nil
+ *
+ * Stops an +io+ object from being monitored.  This is like Epoll#del
+ * but returns +nil+ on ENOENT instead of raising an error.  This is
+ * useful for apps that do not care to track the status of an
  * epoll object itself.
  */
 static VALUE delete(VALUE self, VALUE io)
@@ -427,11 +442,14 @@ static VALUE real_epwait(struct rb_epoll *ep)
 #endif /* 1.8 Green thread compatibility code */
 
 /*
- * Calls epoll_wait(2) and yields
+ * call-seq:
+ *	epoll.wait([maxevents[, timeout]]) { |flags, io| ... }
  *
- * :call-seq:
- *
- *	epoll.wait(64, 1000) { |flags, obj| ... }
+ * Calls epoll_wait(2) and yields Integer +flags+ and IO objects watched
+ * for.  +maxevents+ is the maximum number of events to process at once,
+ * lower numbers may prevent starvation when used by dup-ed Epoll objects
+ * in multiple threads. +timeout+ is specified in milliseconds, +nil+
+ * (the default) meaning it will block and wait indefinitely.
  */
 static VALUE epwait(int argc, VALUE *argv, VALUE self)
 {
@@ -453,23 +471,51 @@ static VALUE epwait(int argc, VALUE *argv, VALUE self)
 	return real_epwait(ep);
 }
 
-/* adds +io+ object the +self+ with +flags+ */
+/*
+ * call-seq:
+ *	epoll.add(io, flags)	->  0
+ *
+ * Starts watching a given +io+ object with +flags+ which may be an Integer
+ * bitmask or Array representing arrays to watch for.  Consider Epoll#set
+ * instead as it is easier to use.
+ */
 static VALUE add(VALUE self, VALUE io, VALUE flags)
 {
 	return ctl(self, io, flags, EPOLL_CTL_ADD);
 }
 
-/* adds +io+ object the +self+ with +flags+ */
+/*
+ * call-seq:
+ *	epoll.del(io)	-> 0
+ *
+ * Disables an IO object from being watched.  Consider Epoll#delete as
+ * it is easier to use.
+ */
 static VALUE del(VALUE self, VALUE io)
 {
-	return ctl(self, io, INT2NUM(0), EPOLL_CTL_DEL);
+	return ctl(self, io, INT2FIX(0), EPOLL_CTL_DEL);
 }
 
+/*
+ * call-seq:
+ *	epoll.mod(io, flags)	-> 0
+ *
+ * Changes the watch for an existing IO object based on +flags+.
+ * Consider Epoll#set instead as it is easier to use.
+ */
 static VALUE mod(VALUE self, VALUE io, VALUE flags)
 {
 	return ctl(self, io, flags, EPOLL_CTL_MOD);
 }
 
+/*
+ * call-seq:
+ *	epoll.to_io	-> Epoll::IO object
+ *
+ * Used to expose the given Epoll object as an Epoll::IO object for IO.select
+ * or IO#stat.  This is unlikely to be useful directly, but is used internally
+ * by IO.select.
+ */
 static VALUE to_io(VALUE self)
 {
 	struct rb_epoll *ep = ep_get(self);
@@ -482,6 +528,13 @@ static VALUE to_io(VALUE self)
 	return ep->io;
 }
 
+/*
+ * call-seq:
+ *	epoll.close	-> nil
+ *
+ * Closes an existing Epoll object and returns memory back to the kernel.
+ * Raises IOError if object is already closed.
+ */
 static VALUE epclose(VALUE self)
 {
 	struct rb_epoll *ep = ep_get(self);
@@ -511,6 +564,12 @@ static VALUE epclose(VALUE self)
 	return Qnil;
 }
 
+/*
+ * call-seq:
+ *	epoll.closed?	-> true or false
+ *
+ * Returns whether or not an Epoll object is closed.
+ */
 static VALUE epclosed(VALUE self)
 {
 	struct rb_epoll *ep = ep_get(self);
@@ -523,7 +582,7 @@ static int cloexec_dup(struct rb_epoll *ep)
 #ifdef F_DUPFD_CLOEXEC
 	int flags = ep->flags & EPOLL_CLOEXEC ? F_DUPFD_CLOEXEC : F_DUPFD;
 	int fd = fcntl(ep->fd, flags, 0);
-#else
+#else /* potentially racy on GVL-free systems: */
 	int fd = dup(ep->fd);
 	if (fd >= 0)
 		(void)fcntl(fd, F_SETFD, FD_CLOEXEC);
@@ -531,6 +590,15 @@ static int cloexec_dup(struct rb_epoll *ep)
 	return fd;
 }
 
+/*
+ * call-seq:
+ *	epoll.dup	-> another Epoll object
+ *
+ * Duplicates an Epoll object and userspace buffers related to this library.
+ * This allows the same epoll object in the Linux kernel to be safely used
+ * across multiple native threads as long as there is one SleepyPenguin::Epoll
+ * object per-thread.
+ */
 static VALUE init_copy(VALUE copy, VALUE orig)
 {
 	struct rb_epoll *a = ep_get(orig);
@@ -561,6 +629,14 @@ static VALUE init_copy(VALUE copy, VALUE orig)
 	return copy;
 }
 
+/*
+ * call-seq:
+ *	epoll.io_for(io)	-> object
+ *
+ * Returns the given IO object currently being watched for.  Different
+ * IO objects may internally refer to the same process file descriptor.
+ * Mostly used for debugging.
+ */
 static VALUE io_for(VALUE self, VALUE obj)
 {
 	struct rb_epoll *ep = ep_get(self);
@@ -569,11 +645,11 @@ static VALUE io_for(VALUE self, VALUE obj)
 }
 
 /*
- * :call-seq:
- *
- *	epoll.flags_for(io) => Integer
+ * call-seq:
+ *	epoll.flags_for(io)	-> Integer
  *
  * Returns the flags currently watched for in current Epoll object.
+ * Mostly used for debugging.
  */
 static VALUE flags_for(VALUE self, VALUE obj)
 {
@@ -583,8 +659,7 @@ static VALUE flags_for(VALUE self, VALUE obj)
 }
 
 /*
- * :call-seq:
- *
+ * call-seq:
  *	epoll.include?(io) => true or false
  *
  * Returns whether or not a given IO is watched and prevented from being
@@ -630,8 +705,47 @@ void sleepy_penguin_init_epoll(void)
 {
 	VALUE mSleepyPenguin, cEpoll;
 
+	/*
+	 * Document-module: SleepyPenguin
+	 *
+	 *	require "sleepy_penguin"
+	 *	include SleepyPenguin
+	 *
+	 * The SleepyPenguin namespace includes the Epoll, Inotify, SignalFD,
+	 * TimerFD, EventFD classes in its top level and no other constants.
+	 *
+	 * If you are uncomfortable including SleepyPenguin, you may also
+	 * use the "SP" alias if it doesn't conflict with existing code:
+	 *
+	 *	require "sleepy_penguin/sp"
+	 *
+	 * And then access classes via:
+	 *
+	 * - SP::Epoll
+	 * - SP::EventFD
+	 * - SP::Inotify
+	 * - SP::SignalFD
+	 * - SP::TimerFD
+	 */
 	mSleepyPenguin = rb_define_module("SleepyPenguin");
+
+	/*
+	 * Document-class: SleepyPenguin::Epoll
+	 *
+	 * The Epoll class provides access to epoll(7) functionality in the
+	 * Linux 2.6 kernel.  It provides fork and GC-safety for Ruby
+	 * objects stored within the IO object and may be passed as an
+	 * argument to IO.select.
+	 */
 	cEpoll = rb_define_class_under(mSleepyPenguin, "Epoll", rb_cObject);
+
+	/*
+	 * Document-class: SleepyPenguin::Epoll::IO
+	 *
+	 * Epoll::IO is an internal class.  Its only purpose is to be
+	 * compatible with IO.select and related methods  and should not
+	 * be used directly, use Epoll instead.
+	 */
 	cEpoll_IO = rb_define_class_under(cEpoll, "IO", rb_cIO);
 	rb_define_method(cEpoll, "initialize", init, -1);
 	rb_define_method(cEpoll, "initialize_copy", init_copy, 1);
@@ -649,7 +763,7 @@ void sleepy_penguin_init_epoll(void)
 	rb_define_method(cEpoll, "set", set, 2);
 	rb_define_method(cEpoll, "wait", epwait, -1);
 
-	/* specifies wheter close-on-exec flag is set for Epoll.new */
+	/* specifies whether close-on-exec flag is set for Epoll.new */
 	rb_define_const(cEpoll, "CLOEXEC", INT2NUM(EPOLL_CLOEXEC));
 
 	/* watch for read/recv operations */
@@ -659,9 +773,13 @@ void sleepy_penguin_init_epoll(void)
 	rb_define_const(cEpoll, "OUT", UINT2NUM(EPOLLOUT));
 
 #ifdef EPOLLRDHUP
-	/* watch a specified IO for shutdown(SHUT_WR) on the remote-end */
+	/*
+	 * Watch a specified io for shutdown(SHUT_WR) on the remote-end.
+	 * Available since Linux 2.6.17.
+	 */
 	rb_define_const(cEpoll, "RDHUP", UINT2NUM(EPOLLRDHUP));
 #endif
+
 	/* watch for urgent read(2) data */
 	rb_define_const(cEpoll, "PRI", UINT2NUM(EPOLLPRI));
 

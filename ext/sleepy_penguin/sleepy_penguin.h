@@ -21,4 +21,7 @@ int rb_sp_fileno(VALUE io);
 #define get_flags rb_sp_get_flags
 #define my_io_closed rb_sp_io_closed
 #define my_fileno rb_sp_fileno
+
+#define NODOC_CONST(klass,name,value) \
+  rb_define_const((klass),(name),(value))
 #endif /* SLEEPY_PENGUIN_H */

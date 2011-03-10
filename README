@@ -2,13 +2,13 @@
 
 sleepy_penguin provides access to newer, Linux-only system calls to wait
 on events from traditionally non-I/O sources.  Bindings to the eventfd,
-timerfd, and epoll interfaces are provided.
+timerfd, inotify, signalfd and epoll interfaces are provided.
 
 == Features
 
 * Thread-safe blocking operations under both Ruby 1.8 and 1.9.
 
-* Mostly working under Rubinius
+* Mostly working under Rubinius and Ruby 1.9
 
 * IO-like objects are backwards-compatible with IO.select.
 
