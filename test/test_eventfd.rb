@@ -27,6 +27,15 @@ class TestEventFD < Test::Unit::TestCase
     assert_equal(Fcntl::O_NONBLOCK, flags)
   end if defined?(EventFD::NONBLOCK)
 
+  def test_new_nonblock_cloexec_sym
+    efd = EventFD.new(0, [:NONBLOCK,:CLOEXEC])
+    flags = efd.fcntl(Fcntl::F_GETFL) & Fcntl::O_NONBLOCK
+    assert_equal(Fcntl::O_NONBLOCK, flags)
+
+    flags = efd.fcntl(Fcntl::F_GETFD) & Fcntl::FD_CLOEXEC
+    assert_equal(Fcntl::FD_CLOEXEC, flags)
+  end if defined?(EventFD::NONBLOCK) && defined?(EventFD::CLOEXEC)
+
   def test_new_cloexec
     efd = EventFD.new(0, EventFD::CLOEXEC)
     flags = efd.fcntl(Fcntl::F_GETFD) & Fcntl::FD_CLOEXEC

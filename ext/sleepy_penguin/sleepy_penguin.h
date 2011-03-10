@@ -12,64 +12,13 @@
 #include <assert.h>
 #include <unistd.h>
 
-#if ! HAVE_RB_IO_T
-#  define rb_io_t OpenFile
-#endif
+unsigned rb_sp_get_uflags(VALUE klass, VALUE flags);
+int rb_sp_get_flags(VALUE klass, VALUE flags);
+int rb_sp_io_closed(VALUE io);
+int rb_sp_fileno(VALUE io);
 
-#ifdef GetReadFile
-#  define FPTR_TO_FD(fptr) (fileno(GetReadFile(fptr)))
-#else
-#  if !HAVE_RB_IO_T || (RUBY_VERSION_MAJOR == 1 && RUBY_VERSION_MINOR == 8)
-#    define FPTR_TO_FD(fptr) fileno(fptr->f)
-#  else
-#    define FPTR_TO_FD(fptr) fptr->fd
-#  endif
-#endif
-
-static int fixint_closed_p(VALUE io)
-{
-	return (fcntl(FIX2INT(io), F_GETFD) == -1 && errno == EBADF);
-}
-
-#if defined(RFILE) && defined(HAVE_ST_FD)
-static int my_rb_io_closed(VALUE io)
-{
-	return RFILE(io)->fptr->fd < 0;
-}
-#else
-static int my_rb_io_closed(VALUE io)
-{
-	return rb_funcall(io, rb_intern("closed?"), 0) == Qtrue;
-}
-#endif
-
-static int my_io_closed(VALUE io)
-{
-	switch (TYPE(io)) {
-	case T_FIXNUM:
-		return fixint_closed_p(io);
-	case T_FILE:
-		break;
-	default:
-		io = rb_convert_type(io, T_FILE, "IO", "to_io");
-	}
-
-	return my_rb_io_closed(io);
-}
-
-static int my_fileno(VALUE io)
-{
-	rb_io_t *fptr;
-
-	switch (TYPE(io)) {
-	case T_FIXNUM: return FIX2INT(io);
-	case T_FILE:
-		GetOpenFile(io, fptr);
-		return FPTR_TO_FD(fptr);
-	}
-	io = rb_convert_type(io, T_FILE, "IO", "to_io");
-	GetOpenFile(io, fptr);
-	return FPTR_TO_FD(fptr);
-}
-
+#define get_uflags rb_sp_get_uflags
+#define get_flags rb_sp_get_flags
+#define my_io_closed rb_sp_io_closed
+#define my_fileno rb_sp_fileno
 #endif /* SLEEPY_PENGUIN_H */

@@ -14,6 +14,14 @@ class TestEpoll < Test::Unit::TestCase
     @ep = Epoll.new
   end
 
+  def test_constants
+    Epoll.constants.each do |const|
+      next if const.to_sym == :IO
+      nr = Epoll.const_get(const)
+      assert nr <= 0xffffffff, "#{const}=#{nr}"
+    end
+  end
+
   def test_cross_thread
     tmp = []
     Thread.new { sleep 0.100; @ep.add(@wr, Epoll::OUT) }
@@ -341,6 +349,27 @@ class TestEpoll < Test::Unit::TestCase
     @ep.add @rd, Epoll::IN
     assert_equal Epoll::IN, @ep.flags_for(@rd.fileno)
     assert_equal Epoll::IN, @ep.flags_for(@rd)
+
+    @ep.del @rd
+    assert_nil @ep.flags_for(@rd.fileno)
+    assert_nil @ep.flags_for(@rd)
+  end
+
+  def test_flags_for_sym
+    @ep.add @rd, :IN
+    assert_equal Epoll::IN, @ep.flags_for(@rd.fileno)
+    assert_equal Epoll::IN, @ep.flags_for(@rd)
+
+    @ep.del @rd
+    assert_nil @ep.flags_for(@rd.fileno)
+    assert_nil @ep.flags_for(@rd)
+  end
+
+  def test_flags_for_sym_ary
+    @ep.add @rd, [:IN, :ET]
+    expect = Epoll::IN | Epoll::ET
+    assert_equal expect, @ep.flags_for(@rd.fileno)
+    assert_equal expect, @ep.flags_for(@rd)
 
     @ep.del @rd
     assert_nil @ep.flags_for(@rd.fileno)

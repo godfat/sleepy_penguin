@@ -13,6 +13,16 @@ class TestSignalFD < Test::Unit::TestCase
     @sfd.close if @sfd && ! @sfd.closed?
   end
 
+  def test_new_with_flags
+    @sfd = SignalFD.new(%w(USR1), [:CLOEXEC,:NONBLOCK])
+    assert_instance_of SignalFD, @sfd
+  end if defined?(SignalFD::CLOEXEC) && defined?(SignalFD::NONBLOCK)
+
+  def test_new_with_sym_flag
+    @sfd = SignalFD.new(%w(USR1), :CLOEXEC)
+    assert_instance_of SignalFD, @sfd
+  end if defined?(SignalFD::CLOEXEC)
+
   def test_take
     @sfd = SignalFD.new(%w(USR1), 0)
     pid = fork { sleep 0.01; Process.kill(:USR1, Process.ppid) }

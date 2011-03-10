@@ -4,16 +4,16 @@
 #include "nonblock.h"
 static ID id_for_fd;
 
-static VALUE create(int argc, VALUE *argv, VALUE klass)
+static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 {
 	VALUE _initval, _flags;
 	unsigned initval;
-	int flags = 0;
+	int flags;
 	int fd;
 
 	rb_scan_args(argc, argv, "11", &_initval, &_flags);
 	initval = NUM2UINT(_initval);
-	flags = NIL_P(_flags) ? 0 : NUM2INT(_flags);
+	flags = rb_sp_get_flags(klass, _flags);
 
 	fd = eventfd(initval, flags);
 	if (fd == -1) {
@@ -55,7 +55,7 @@ static VALUE incr(VALUE self, VALUE value)
 	struct efd_args x;
 	ssize_t w;
 
-	x.fd = my_fileno(self);
+	x.fd = rb_sp_fileno(self);
 	x.val = (uint64_t)NUM2ULL(value);
 
 retry:
@@ -74,7 +74,7 @@ static VALUE getvalue(VALUE self)
 	struct efd_args x;
 	ssize_t w;
 
-	x.fd = my_fileno(self);
+	x.fd = rb_sp_fileno(self);
 
 retry:
 	w = (ssize_t)rb_thread_blocking_region(efd_read, &x, RUBY_UBF_IO, 0);
@@ -90,7 +90,7 @@ retry:
 
 static VALUE incr(VALUE self, VALUE value)
 {
-	int fd = my_fileno(self);
+	int fd = rb_sp_fileno(self);
 	uint64_t val = (uint64_t)NUM2ULL(value);
 	ssize_t w;
 
@@ -108,7 +108,7 @@ retry:
 
 static VALUE getvalue(VALUE self)
 {
-	int fd = my_fileno(self);
+	int fd = rb_sp_fileno(self);
 	uint64_t val;
 	ssize_t r;
 
@@ -127,7 +127,7 @@ retry:
 
 static VALUE getvalue_nonblock(VALUE self)
 {
-	int fd = my_fileno(self);
+	int fd = rb_sp_fileno(self);
 	uint64_t val;
 	ssize_t r;
 
@@ -141,7 +141,7 @@ static VALUE getvalue_nonblock(VALUE self)
 
 static VALUE incr_nonblock(VALUE self, VALUE value)
 {
-	int fd = my_fileno(self);
+	int fd = rb_sp_fileno(self);
 	uint64_t val = (uint64_t)NUM2ULL(value);
 	ssize_t w;
 
@@ -159,15 +159,15 @@ void sleepy_penguin_init_eventfd(void)
 
 	mSleepyPenguin = rb_define_module("SleepyPenguin");
 	cEventFD = rb_define_class_under(mSleepyPenguin, "EventFD", rb_cIO);
-	rb_define_singleton_method(cEventFD, "new", create, -1);
+	rb_define_singleton_method(cEventFD, "new", s_new, -1);
 #ifdef EFD_NONBLOCK
-	rb_define_const(cEventFD, "NONBLOCK", UINT2NUM(EFD_NONBLOCK));
+	rb_define_const(cEventFD, "NONBLOCK", INT2NUM(EFD_NONBLOCK));
 #endif
 #ifdef EFD_CLOEXEC
-	rb_define_const(cEventFD, "CLOEXEC", UINT2NUM(EFD_CLOEXEC));
+	rb_define_const(cEventFD, "CLOEXEC", INT2NUM(EFD_CLOEXEC));
 #endif
 #ifdef EFD_SEMAPHORE
-	rb_define_const(cEventFD, "SEMAPHORE", UINT2NUM(EFD_SEMAPHORE));
+	rb_define_const(cEventFD, "SEMAPHORE", INT2NUM(EFD_SEMAPHORE));
 #endif
 	rb_define_method(cEventFD, "value", getvalue, 0);
 	rb_define_method(cEventFD, "incr", incr, 1);

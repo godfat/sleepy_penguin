@@ -156,24 +156,11 @@ static void ep_check(struct rb_epoll *ep)
  */
 static VALUE init(int argc, VALUE *argv, VALUE self)
 {
-	int flags;
 	struct rb_epoll *ep = ep_get(self);
 	VALUE fl;
 
 	rb_scan_args(argc, argv, "01", &fl);
-	if (NIL_P(fl)) {
-		flags = 0;
-	} else {
-		switch (TYPE(fl)) {
-		case T_FIXNUM:
-		case T_BIGNUM:
-			flags = NUM2INT(fl);
-			break;
-		default:
-			rb_raise(rb_eArgError, "flags must be an integer");
-		}
-	}
-	ep->flags = flags;
+	ep->flags = rb_sp_get_flags(self, fl);
 	my_epoll_create(ep);
 
 	return self;
@@ -183,11 +170,11 @@ static VALUE ctl(VALUE self, VALUE io, VALUE flags, int op)
 {
 	struct epoll_event event;
 	struct rb_epoll *ep = ep_get(self);
-	int fd = my_fileno(io);
+	int fd = rb_sp_fileno(io);
 	int rv;
 
 	ep_check(ep);
-	event.events = NUM2UINT(flags);
+	event.events = rb_sp_get_uflags(self, flags);
 	pack_event_data(&event, io);
 
 	rv = epoll_ctl(ep->fd, op, fd, &event);
@@ -204,6 +191,7 @@ static VALUE ctl(VALUE self, VALUE io, VALUE flags, int op)
 		rb_ary_store(ep->marks, fd, io);
 		/* fall-through */
 	case EPOLL_CTL_MOD:
+		flags = UINT2NUM(event.events);
 		rb_ary_store(ep->flag_cache, fd, flags);
 		break;
 	case EPOLL_CTL_DEL:
@@ -222,12 +210,12 @@ static VALUE set(VALUE self, VALUE io, VALUE flags)
 {
 	struct epoll_event event;
 	struct rb_epoll *ep = ep_get(self);
-	int fd = my_fileno(io);
+	int fd = rb_sp_fileno(io);
 	int rv;
 	VALUE cur_io = rb_ary_entry(ep->marks, fd);
 
 	ep_check(ep);
-	event.events = NUM2UINT(flags);
+	event.events = rb_sp_get_uflags(self, flags);
 	pack_event_data(&event, io);
 
 	if (cur_io == io) {
@@ -261,6 +249,7 @@ fallback_add:
 		}
 		rb_ary_store(ep->marks, fd, io);
 	}
+	flags = UINT2NUM(event.events);
 	rb_ary_store(ep->flag_cache, fd, flags);
 
 	return INT2NUM(rv);
@@ -275,16 +264,16 @@ fallback_add:
 static VALUE delete(VALUE self, VALUE io)
 {
 	struct rb_epoll *ep = ep_get(self);
-	int fd = my_fileno(io);
+	int fd = rb_sp_fileno(io);
 	int rv;
 	VALUE cur_io;
 
 	ep_check(ep);
-	if (my_io_closed(io))
+	if (rb_sp_io_closed(io))
 		goto out;
 
 	cur_io = rb_ary_entry(ep->marks, fd);
-	if (NIL_P(cur_io) || my_io_closed(cur_io))
+	if (NIL_P(cur_io) || rb_sp_io_closed(cur_io))
 		return Qnil;
 
 	rv = epoll_ctl(ep->fd, EPOLL_CTL_DEL, fd, NULL);
@@ -576,7 +565,7 @@ static VALUE io_for(VALUE self, VALUE obj)
 {
 	struct rb_epoll *ep = ep_get(self);
 
-	return rb_ary_entry(ep->marks, my_fileno(obj));
+	return rb_ary_entry(ep->marks, rb_sp_fileno(obj));
 }
 
 /*
@@ -590,7 +579,7 @@ static VALUE flags_for(VALUE self, VALUE obj)
 {
 	struct rb_epoll *ep = ep_get(self);
 
-	return rb_ary_entry(ep->flag_cache, my_fileno(obj));
+	return rb_ary_entry(ep->flag_cache, rb_sp_fileno(obj));
 }
 
 /*
@@ -606,7 +595,7 @@ static VALUE include_p(VALUE self, VALUE obj)
 {
 	struct rb_epoll *ep = ep_get(self);
 
-	return NIL_P(rb_ary_entry(ep->marks, my_fileno(obj))) ? Qfalse : Qtrue;
+	return NIL_P(rb_ary_entry(ep->marks, rb_sp_fileno(obj))) ? Qfalse : Qtrue;
 }
 
 /*
@@ -664,35 +653,35 @@ void sleepy_penguin_init_epoll(void)
 	rb_define_const(cEpoll, "CLOEXEC", INT2NUM(EPOLL_CLOEXEC));
 
 	/* watch for read/recv operations */
-	rb_define_const(cEpoll, "IN", INT2NUM(EPOLLIN));
+	rb_define_const(cEpoll, "IN", UINT2NUM(EPOLLIN));
 
 	/* watch for write/send operations */
-	rb_define_const(cEpoll, "OUT", INT2NUM(EPOLLOUT));
+	rb_define_const(cEpoll, "OUT", UINT2NUM(EPOLLOUT));
 
 #ifdef EPOLLRDHUP
 	/* watch a specified IO for shutdown(SHUT_WR) on the remote-end */
-	rb_define_const(cEpoll, "RDHUP", INT2NUM(EPOLLRDHUP));
+	rb_define_const(cEpoll, "RDHUP", UINT2NUM(EPOLLRDHUP));
 #endif
 	/* watch for urgent read(2) data */
-	rb_define_const(cEpoll, "PRI", INT2NUM(EPOLLPRI));
+	rb_define_const(cEpoll, "PRI", UINT2NUM(EPOLLPRI));
 
 	/*
 	 * watch for errors, there is no need to specify this,
 	 * it is always monitored when an IO is watched
 	 */
-	rb_define_const(cEpoll, "ERR", INT2NUM(EPOLLERR));
+	rb_define_const(cEpoll, "ERR", UINT2NUM(EPOLLERR));
 
 	/*
 	 * watch for hangups, there is no need to specify this,
 	 * it is always monitored when an IO is watched
 	 */
-	rb_define_const(cEpoll, "HUP", INT2NUM(EPOLLHUP));
+	rb_define_const(cEpoll, "HUP", UINT2NUM(EPOLLHUP));
 
 	/* notifications are only Edge Triggered, see epoll(7) */
-	rb_define_const(cEpoll, "ET", INT2NUM(EPOLLET));
+	rb_define_const(cEpoll, "ET", UINT2NUM((uint32_t)EPOLLET));
 
 	/* unwatch the descriptor once any event has fired */
-	rb_define_const(cEpoll, "ONESHOT", INT2NUM(EPOLLONESHOT));
+	rb_define_const(cEpoll, "ONESHOT", UINT2NUM(EPOLLONESHOT));
 
 	id_for_fd = rb_intern("for_fd");
 	active = st_init_numtable();

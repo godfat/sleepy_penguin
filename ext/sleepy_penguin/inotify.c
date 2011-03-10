@@ -77,7 +77,7 @@ static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 	int fd;
 
 	rb_scan_args(argc, argv, "01", &_flags);
-	flags = NIL_P(_flags) ? 0 : NUM2INT(_flags);
+	flags = rb_sp_get_flags(klass, _flags);
 
 	fd = inotify_init1(flags);
 	if (fd == -1) {
@@ -106,9 +106,9 @@ static VALUE s_new(int argc, VALUE *argv, VALUE klass)
  */
 static VALUE add_watch(VALUE self, VALUE path, VALUE vmask)
 {
-	int fd = my_fileno(self);
+	int fd = rb_sp_fileno(self);
 	const char *pathname = StringValueCStr(path);
-	uint32_t mask = NUM2UINT(vmask);
+	uint32_t mask = rb_sp_get_uflags(self, vmask);
 	int rc = inotify_add_watch(fd, pathname, mask);
 
 	if (rc == -1) {
@@ -132,7 +132,7 @@ static VALUE add_watch(VALUE self, VALUE path, VALUE vmask)
 static VALUE rm_watch(VALUE self, VALUE vwd)
 {
 	uint32_t wd = NUM2UINT(vwd);
-	int fd = my_fileno(self);
+	int fd = rb_sp_fileno(self);
 	int rc = inotify_rm_watch(fd, wd);
 
 	if (rc == -1)
@@ -168,7 +168,7 @@ static VALUE event_new(struct inotify_event *e)
  */
 static VALUE take(int argc, VALUE *argv, VALUE self)
 {
-	int fd = my_fileno(self);
+	int fd = rb_sp_fileno(self);
 	VALUE buf = rb_ivar_get(self, id_inotify_buf);
 	VALUE tmp = rb_ivar_get(self, id_inotify_tmp);
 	struct inotify_event *ptr;
@@ -328,7 +328,7 @@ void sleepy_penguin_init_inotify(void)
 	IN(ONESHOT);
 
 /* for inotify_init1() */
-	IN(NONBLOCK);
-	IN(CLOEXEC);
+	rb_define_const(cInotify, "NONBLOCK", INT2NUM(IN_NONBLOCK));
+	rb_define_const(cInotify, "CLOEXEC", INT2NUM(IN_CLOEXEC));
 }
 #endif /* HAVE_SYS_INOTIFY_H */

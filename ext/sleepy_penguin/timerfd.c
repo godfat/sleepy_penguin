@@ -7,12 +7,12 @@ static ID id_for_fd;
 static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 {
 	VALUE cid, fl;
-	int clockid, flags = 0;
+	int clockid, flags;
 	int fd;
 
 	rb_scan_args(argc, argv, "02", &cid, &fl);
-	clockid = NIL_P(cid) ? CLOCK_MONOTONIC : NUM2INT(cid);
-	flags = NIL_P(fl) ? 0 : NUM2INT(fl);
+	clockid = NIL_P(cid) ? CLOCK_MONOTONIC : rb_sp_get_flags(klass, cid);
+	flags = rb_sp_get_flags(klass, fl);
 
 	fd = timerfd_create(clockid, flags);
 	if (fd == -1) {
@@ -37,8 +37,8 @@ static VALUE itimerspec2ary(struct itimerspec *its)
 
 static VALUE settime(VALUE self, VALUE fl, VALUE interval, VALUE value)
 {
-	int fd = my_fileno(self);
-	int flags = NUM2INT(fl);
+	int fd = rb_sp_fileno(self);
+	int flags = rb_sp_get_flags(self, fl);
 	struct itimerspec old, new;
 
 	value2timespec(&new.it_interval, interval);
@@ -52,7 +52,7 @@ static VALUE settime(VALUE self, VALUE fl, VALUE interval, VALUE value)
 
 static VALUE gettime(VALUE self)
 {
-	int fd = my_fileno(self);
+	int fd = rb_sp_fileno(self);
 	struct itimerspec curr;
 
 	if (timerfd_gettime(fd, &curr) == -1)
@@ -74,7 +74,7 @@ static VALUE tfd_read(void *args)
 static VALUE expirations(VALUE self)
 {
 	ssize_t r;
-	uint64_t buf = (int)my_fileno(self);
+	uint64_t buf = (int)rb_sp_fileno(self);
 
 	r = (VALUE)rb_thread_blocking_region(tfd_read, &buf, RUBY_UBF_IO, 0);
 	if (r == -1)
@@ -86,7 +86,7 @@ static VALUE expirations(VALUE self)
 #include "nonblock.h"
 static VALUE expirations(VALUE self)
 {
-	int fd = my_fileno(self);
+	int fd = rb_sp_fileno(self);
 	uint64_t buf;
 	ssize_t r;
 

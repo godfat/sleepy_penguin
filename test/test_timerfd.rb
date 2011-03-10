@@ -23,6 +23,12 @@ class TestTimerFD < Test::Unit::TestCase
     assert_equal(Fcntl::O_NONBLOCK, flags)
   end if defined?(TimerFD::NONBLOCK)
 
+  def test_create_nonblock_sym
+    tfd = TimerFD.new(:REALTIME, :NONBLOCK)
+    flags = tfd.fcntl(Fcntl::F_GETFL) & Fcntl::O_NONBLOCK
+    assert_equal(Fcntl::O_NONBLOCK, flags)
+  end if defined?(TimerFD::NONBLOCK)
+
   def test_create_cloexec
     tfd = TimerFD.new(TimerFD::REALTIME, TimerFD::CLOEXEC)
     flags = tfd.fcntl(Fcntl::F_GETFD) & Fcntl::FD_CLOEXEC
@@ -32,6 +38,13 @@ class TestTimerFD < Test::Unit::TestCase
   def test_settime
     tfd = TimerFD.new(TimerFD::REALTIME)
     assert_equal([0, 0], tfd.settime(TimerFD::ABSTIME, 0, 0.01))
+    sleep 0.01
+    assert_equal 1, tfd.expirations
+  end
+
+  def test_settime_symbol
+    tfd = TimerFD.new(:REALTIME)
+    assert_equal([0, 0], tfd.settime(:ABSTIME, 0, 0.01))
     sleep 0.01
     assert_equal 1, tfd.expirations
   end

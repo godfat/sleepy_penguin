@@ -93,11 +93,11 @@ static VALUE update_bang(int argc, VALUE *argv, VALUE self)
 	VALUE vmask, vflags;
 	sigset_t mask;
 	int flags;
-	int fd = my_fileno(self);
+	int fd = rb_sp_fileno(self);
 	int rc;
 
 	rb_scan_args(argc, argv, "02", &vmask, &vflags);
-	flags = NIL_P(vflags) ? cur_flags(fd) : NUM2INT(vflags);
+	flags = NIL_P(vflags) ? cur_flags(fd) : rb_sp_get_flags(self, vflags);
 	value2sigset(&mask, vmask);
 
 	rc = signalfd(fd, &mask, flags);
@@ -132,7 +132,7 @@ static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 	int fd;
 
 	rb_scan_args(argc, argv, "02", &vmask, &vflags);
-	flags = NIL_P(vflags) ? 0 : NUM2INT(vflags);
+	flags = rb_sp_get_flags(klass, vflags);
 	value2sigset(&mask, vmask);
 
 	fd = signalfd(-1, &mask, flags);
@@ -205,7 +205,7 @@ static VALUE sfd_take(VALUE self)
 	struct signalfd_siginfo *ssi = DATA_PTR(rv);
 	ssize_t r;
 
-	ssi->ssi_fd = my_fileno(self);
+	ssi->ssi_fd = rb_sp_fileno(self);
 	r = do_sfd_read(ssi);
 	if (r < 0)
 		rb_sys_fail("read(signalfd)");
