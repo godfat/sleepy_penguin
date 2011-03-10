@@ -160,8 +160,7 @@ static VALUE ssi_init(VALUE self)
 	return self;
 }
 
-#ifdef HAVE_RB_THREAD_BLOCKING_REGION
-static VALUE xread(void *args)
+static VALUE sfd_read(void *args)
 {
 	struct signalfd_siginfo *ssi = args;
 	int fd = ssi->ssi_fd;
@@ -169,26 +168,6 @@ static VALUE xread(void *args)
 
 	return (VALUE)r;
 }
-
-static ssize_t do_sfd_read(struct signalfd_siginfo *ssi)
-{
-	return (ssize_t)rb_thread_blocking_region(xread, ssi, RUBY_UBF_IO, 0);
-}
-#else /* ! HAVE_RB_THREAD_BLOCKING_REGION */
-static ssize_t do_sfd_read(struct signalfd_siginfo *ssi)
-{
-	int fd = ssi->ssi_fd;
-	ssize_t r;
-
-	rb_sp_set_nonblock(fd);
-
-	do
-		r = read(fd, ssi, sizeof(struct signalfd_siginfo));
-	while (r == -1 && rb_io_wait_readable(fd));
-
-	return r;
-}
-#endif /* ! HAVE_RB_THREAD_BLOCKING_REGION */
 
 /*
  * call-seq:
@@ -201,11 +180,17 @@ static VALUE sfd_take(VALUE self)
 	VALUE rv = ssi_alloc(cSigInfo);
 	struct signalfd_siginfo *ssi = DATA_PTR(rv);
 	ssize_t r;
+	int fd;
 
-	ssi->ssi_fd = rb_sp_fileno(self);
-	r = do_sfd_read(ssi);
-	if (r < 0)
+	fd = ssi->ssi_fd = rb_sp_fileno(self);
+	blocking_io_prepare(fd);
+retry:
+	r = (ssize_t)rb_sp_io_region(sfd_read, ssi);
+	if (r == -1) {
+		if (rb_io_wait_readable(fd))
+			goto retry;
 		rb_sys_fail("read(signalfd)");
+	}
 	if (r == 0)
 		rb_eof_error();
 	return rv;

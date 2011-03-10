@@ -95,7 +95,6 @@ static VALUE gettime(VALUE self)
 	return itimerspec2ary(&curr);
 }
 
-#ifdef HAVE_RB_THREAD_BLOCKING_REGION
 static VALUE tfd_read(void *args)
 {
 	uint64_t *buf = args;
@@ -115,24 +114,12 @@ static VALUE tfd_read(void *args)
 static VALUE expirations(VALUE self)
 {
 	ssize_t r;
-	uint64_t buf = (int)rb_sp_fileno(self);
-
-	r = (VALUE)rb_thread_blocking_region(tfd_read, &buf, RUBY_UBF_IO, 0);
-	if (r == -1)
-		rb_sys_fail("read(timerfd)");
-
-	return ULL2NUM(buf);
-}
-#else /* ! HAVE_RB_THREAD_BLOCKING_REGION */
-static VALUE expirations(VALUE self)
-{
 	int fd = rb_sp_fileno(self);
-	uint64_t buf;
-	ssize_t r;
+	uint64_t buf = (uint64_t)fd;
 
-	rb_sp_set_nonblock(fd);
+	blocking_io_prepare(fd);
 retry:
-	r = read(fd, &buf, sizeof(uint64_t));
+	r = (ssize_t)rb_sp_io_region(tfd_read, &buf);
 	if (r == -1) {
 		if (rb_io_wait_readable(fd))
 			goto retry;
@@ -141,7 +128,6 @@ retry:
 
 	return ULL2NUM(buf);
 }
-#endif
 
 void sleepy_penguin_init_timerfd(void)
 {

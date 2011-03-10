@@ -344,7 +344,7 @@ static VALUE nogvl_wait(void *args)
 
 static VALUE real_epwait(struct rb_epoll *ep)
 {
-	int n = (int)rb_thread_blocking_region(nogvl_wait, ep, RUBY_UBF_IO, 0);
+	int n = (int)rb_sp_io_region(nogvl_wait, ep);
 
 	return epwait_result(ep, n);
 }

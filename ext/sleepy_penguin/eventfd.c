@@ -43,7 +43,6 @@ static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 	return rb_funcall(klass, id_for_fd, 1, INT2NUM(fd));
 }
 
-#ifdef HAVE_RB_THREAD_BLOCKING_REGION
 struct efd_args {
 	int fd;
 	uint64_t val;
@@ -79,10 +78,11 @@ static VALUE incr(VALUE self, VALUE value)
 	ssize_t w;
 
 	x.fd = rb_sp_fileno(self);
+	blocking_io_prepare(x.fd);
 	x.val = (uint64_t)NUM2ULL(value);
 
 retry:
-	w = (ssize_t)rb_thread_blocking_region(efd_write, &x, RUBY_UBF_IO, 0);
+	w = (ssize_t)rb_sp_io_region(efd_write, &x);
 	if (w == -1) {
 		if (rb_io_wait_writable(x.fd))
 			goto retry;
@@ -111,9 +111,10 @@ static VALUE getvalue(VALUE self)
 	ssize_t w;
 
 	x.fd = rb_sp_fileno(self);
+	blocking_io_prepare(x.fd);
 
 retry:
-	w = (ssize_t)rb_thread_blocking_region(efd_read, &x, RUBY_UBF_IO, 0);
+	w = (ssize_t)rb_sp_io_region(efd_read, &x);
 	if (w == -1) {
 		if (rb_io_wait_readable(x.fd))
 			goto retry;
@@ -122,44 +123,6 @@ retry:
 
 	return ULL2NUM(x.val);
 }
-#else  /* !HAVE_RB_THREAD_BLOCKING_REGION */
-
-static VALUE incr(VALUE self, VALUE value)
-{
-	int fd = rb_sp_fileno(self);
-	uint64_t val = (uint64_t)NUM2ULL(value);
-	ssize_t w;
-
-	rb_sp_set_nonblock(fd);
-retry:
-	w = write(fd, &val, sizeof(uint64_t));
-	if (w == -1) {
-		if (rb_io_wait_writable(fd))
-			goto retry;
-		rb_sys_fail("write(eventfd)");
-	}
-
-	return Qnil;
-}
-
-static VALUE getvalue(VALUE self)
-{
-	int fd = rb_sp_fileno(self);
-	uint64_t val;
-	ssize_t r;
-
-	rb_sp_set_nonblock(fd);
-retry:
-	r = read(fd, &val, sizeof(uint64_t));
-	if (r == -1) {
-		if (rb_io_wait_readable(fd))
-			goto retry;
-		rb_sys_fail("read(eventfd)");
-	}
-
-	return ULL2NUM(val);
-}
-#endif /* !HAVE_RB_THREAD_BLOCKING_REGION */
 
 /*
  * call-seq:
