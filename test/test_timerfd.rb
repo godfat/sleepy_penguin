@@ -48,4 +48,13 @@ class TestTimerFD < Test::Unit::TestCase
     sleep 0.01
     assert_equal 1, tfd.expirations
   end
+
+  def test_gettime
+    tfd = TimerFD.new :REALTIME
+    now = Time.now.to_i
+    assert_equal([0, 0], tfd.settime(nil, 0, now + 5))
+    interval, value = tfd.gettime
+    assert_equal 0, interval
+    assert_in_delta now + 5, value, 0.01
+  end
 end if defined?(SleepyPenguin::TimerFD)

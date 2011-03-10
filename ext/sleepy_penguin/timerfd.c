@@ -170,6 +170,7 @@ void sleepy_penguin_init_timerfd(void)
 #endif
 
 	rb_define_method(cTimerFD, "settime", settime, 3);
+	rb_define_method(cTimerFD, "gettime", gettime, 0);
 	rb_define_method(cTimerFD, "expirations", expirations, 0);
 	id_for_fd = rb_intern("for_fd");
 }
