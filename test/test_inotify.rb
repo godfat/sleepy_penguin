@@ -7,9 +7,15 @@ require 'sleepy_penguin'
 
 class TestInotify < Test::Unit::TestCase
   include SleepyPenguin
+  attr_reader :ino
+
+  def teardown
+    ObjectSpace.each_object(Inotify) { |io| io.close unless io.closed? }
+    ObjectSpace.each_object(Tempfile) { |io| io.close unless io.closed? }
+  end
 
   def test_new
-    ino = Inotify.new
+    @ino = Inotify.new
     assert_kind_of(IO, ino)
   end
 
@@ -93,5 +99,20 @@ class TestInotify < Test::Unit::TestCase
     second_id = others[0].object_id
     assert_equal second_id, ino.take.object_id
     assert_nil ino.take(true)
+  end
+
+  def test_each
+    ino = Inotify.new :CLOEXEC
+    tmp1 = Tempfile.new 'take'
+    wd = ino.add_watch tmp1.path, :OPEN
+    assert_kind_of Integer, wd
+    nr = 5
+    o = File.open(tmp1.path)
+    ino.each do |event|
+      assert_equal [:OPEN], event.events
+      break if (nr -= 1) == 0
+      o = File.open(tmp1.path)
+    end
+    assert_equal 0, nr
   end
 end

@@ -263,6 +263,22 @@ static VALUE init_copy(VALUE dest, VALUE orig)
 	return dest;
 }
 
+/*
+ * call-seq:
+ * 	ino.each { |event| ... } -> ino
+ *
+ * Yields each Inotify::Event received in a blocking fashion.
+ */
+static VALUE each(VALUE self)
+{
+	VALUE argv = Qfalse;
+
+	while (1)
+		rb_yield(take(0, &argv, self));
+
+	return self;
+}
+
 void sleepy_penguin_init_inotify(void)
 {
 	VALUE mSleepyPenguin, cInotify;
@@ -281,12 +297,20 @@ void sleepy_penguin_init_inotify(void)
 	 * IO#close may be called on the object when it is no longer needed.
 	 *
 	 * Inotify is available on Linux 2.6.13 or later.
+	 *
+	 *	require "sleepy_penguin/sp"
+	 *	ino = SP::Inotify.new
+	 *	ino.add_watch("/path/to/foo", :OPEN)
+	 *	ino.each do |event|
+	 *	  p event.events # => [ :OPEN ]
+	 *	end
 	 */
 	cInotify = rb_define_class_under(mSleepyPenguin, "Inotify", rb_cIO);
 	rb_define_method(cInotify, "add_watch", add_watch, 2);
 	rb_define_method(cInotify, "rm_watch", rm_watch, 1);
 	rb_define_method(cInotify, "initialize_copy", init_copy, 1);
 	rb_define_method(cInotify, "take", take, -1);
+	rb_define_method(cInotify, "each", each, 0);
 
 	/*
 	 * Document-class: SleepyPenguin::Inotify::Event
