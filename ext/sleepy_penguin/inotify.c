@@ -134,6 +134,19 @@ static VALUE event_new(struct inotify_event *e)
 	return rb_struct_new(cEvent, wd, mask, cookie, name);
 }
 
+struct inread_args {
+	int fd;
+	struct inotify_event *ptr;
+	long len;
+};
+
+static VALUE inread(void *ptr)
+{
+	struct inread_args *args = ptr;
+
+	return (VALUE)read(args->fd, args->ptr, args->len);
+}
+
 /*
  * call-seq:
  *	in.take([nonblock]) -> Inotify::Event or nil
@@ -143,12 +156,10 @@ static VALUE event_new(struct inotify_event *e)
  */
 static VALUE take(int argc, VALUE *argv, VALUE self)
 {
-	int fd = rb_sp_fileno(self);
-	VALUE buf = rb_ivar_get(self, id_inotify_buf);
+	struct inread_args args;
+	VALUE buf;
 	VALUE tmp = rb_ivar_get(self, id_inotify_tmp);
-	struct inotify_event *ptr;
 	struct inotify_event *e, *end;
-	long len;
 	ssize_t r;
 	VALUE rv = Qnil;
 	VALUE nonblock;
@@ -158,33 +169,41 @@ static VALUE take(int argc, VALUE *argv, VALUE self)
 
 	rb_scan_args(argc, argv, "01", &nonblock);
 
-	len = RSTRING_LEN(buf);
-	ptr = (struct inotify_event *)RSTRING_PTR(buf);
+	args.fd = rb_sp_fileno(self);
+	buf = rb_ivar_get(self, id_inotify_buf);
+	args.len = RSTRING_LEN(buf);
+	args.ptr = (struct inotify_event *)RSTRING_PTR(buf);
+
+	if (RTEST(nonblock))
+		rb_sp_set_nonblock(args.fd);
+	else
+		blocking_io_prepare(args.fd);
 	do {
-		rb_sp_set_nonblock(fd);
-		r = read(fd, ptr, len);
-		if (r == 0 || (r < 0 && errno == EINVAL)) {
+		r = rb_sp_io_region(inread, &args);
+		if (r == 0 /* Linux < 2.6.21 */
+		    ||
+		    (r < 0 && errno == EINVAL) /* Linux >= 2.6.21 */
+		   ) {
 			/* resize internal buffer */
 			int newlen;
-			if (len > 0x10000)
+			if (args.len > 0x10000)
 				rb_raise(rb_eRuntimeError, "path too long");
-			if (ioctl(fd, FIONREAD, &newlen) != 0)
+			if (ioctl(args.fd, FIONREAD, &newlen) != 0)
 				rb_sys_fail("ioctl(inotify,FIONREAD)");
 			rb_str_resize(buf, newlen);
-			ptr = (struct inotify_event *)RSTRING_PTR(buf);
-			len = newlen;
+			args.ptr = (struct inotify_event *)RSTRING_PTR(buf);
+			args.len = newlen;
 		} else if (r < 0) {
-			if (errno == EAGAIN) {
-				if (RTEST(nonblock))
-					return Qnil;
-				rb_io_wait_readable(fd);
+			if (errno == EAGAIN && RTEST(nonblock)) {
+				return Qnil;
 			} else {
-				rb_sys_fail("read(inotify)");
+				if (!rb_io_wait_readable(args.fd))
+					rb_sys_fail("read(inotify)");
 			}
 		} else {
 			/* buffer in userspace to minimize read() calls */
-			end = (struct inotify_event *)((char *)ptr + r);
-			for (e = ptr; e < end; ) {
+			end = (struct inotify_event *)((char *)args.ptr + r);
+			for (e = args.ptr; e < end; ) {
 				VALUE event = event_new(e);
 				if (NIL_P(rv))
 					rv = event;
