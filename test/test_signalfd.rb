@@ -22,6 +22,11 @@ class TestSignalFD < Test::Unit::TestCase
     trap(:USR2, "DEFAULT")
   end
 
+  def test_rt_constants
+    assert [33,34].include?(SignalFD::RTMIN)
+    assert_equal 64, SignalFD::RTMAX
+  end
+
   def test_new_with_flags
     @sfd = SignalFD.new(%w(USR1), [:CLOEXEC,:NONBLOCK])
     assert_instance_of SignalFD, @sfd

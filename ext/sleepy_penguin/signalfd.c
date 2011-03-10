@@ -1,5 +1,6 @@
 #ifdef HAVE_SYS_SIGNALFD_H
 #include "sleepy_penguin.h"
+#include <signal.h>
 #include <sys/signalfd.h>
 static ID id_for_fd, id_list;
 static VALUE ssi_members;
@@ -293,6 +294,18 @@ void sleepy_penguin_init_signalfd(void)
 	ssi_members = rb_ary_new();
 
 	NODOC_CONST(cSigInfo, "MEMBERS", ssi_members);
+
+	/*
+	 * the minimum signal number for real-time signals,
+	 * 34 on NPTL-based systems
+	 */
+	rb_define_const(cSignalFD, "RTMIN", INT2NUM(SIGRTMIN));
+
+	/*
+	 * the maximum signal number for real-time signals,
+	 * 64 on NPTL-based systems
+	 */
+	rb_define_const(cSignalFD, "RTMAX", INT2NUM(SIGRTMAX));
 
 #define SSI_READER(FIELD) do { \
 	  rb_define_method(cSigInfo, #FIELD, ssi_##FIELD, 0); \
