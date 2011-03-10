@@ -57,4 +57,12 @@ class TestTimerFD < Test::Unit::TestCase
     assert_equal 0, interval
     assert_in_delta now + 5, value, 0.01
   end
+
+  def test_expirations_nonblock
+    tfd = TimerFD.new(:MONOTONIC)
+    assert_equal([0, 0], tfd.settime(0, 0, 0.01))
+    assert_nil tfd.expirations(true)
+    sleep 0.01
+    assert_equal 1, tfd.expirations
+  end
 end if defined?(SleepyPenguin::TimerFD)

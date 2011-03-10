@@ -106,21 +106,29 @@ static VALUE tfd_read(void *args)
 
 /*
  * call-seq:
- *	tfd.expirations		-> Integer
+ *	tfd.expirations([nonblock])		-> Integer
  *
  * Returns the number of expirations that have occurred.  This will block
- * if no expirations have occurred at the time of the call.
+ * if no expirations have occurred at the time of the call.  Returns +nil+
+ * if +nonblock+ is passed and is +true+
  */
-static VALUE expirations(VALUE self)
+static VALUE expirations(int argc, VALUE *argv, VALUE self)
 {
 	ssize_t r;
 	int fd = rb_sp_fileno(self);
 	uint64_t buf = (uint64_t)fd;
+	VALUE nonblock;
 
-	blocking_io_prepare(fd);
+	rb_scan_args(argc, argv, "01", &nonblock);
+	if (RTEST(nonblock))
+		rb_sp_set_nonblock(fd);
+	else
+		blocking_io_prepare(fd);
 retry:
 	r = (ssize_t)rb_sp_io_region(tfd_read, &buf);
 	if (r == -1) {
+		if (errno == EAGAIN && RTEST(nonblock))
+			return Qnil;
 		if (rb_io_wait_readable(fd))
 			goto retry;
 		rb_sys_fail("read(timerfd)");
@@ -156,7 +164,7 @@ void sleepy_penguin_init_timerfd(void)
 
 	rb_define_method(cTimerFD, "settime", settime, 3);
 	rb_define_method(cTimerFD, "gettime", gettime, 0);
-	rb_define_method(cTimerFD, "expirations", expirations, 0);
+	rb_define_method(cTimerFD, "expirations", expirations, -1);
 	id_for_fd = rb_intern("for_fd");
 }
 #endif /* HAVE_SYS_TIMERFD_H */
