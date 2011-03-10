@@ -46,21 +46,22 @@ lib := $(lib):$(ext_pfx)/$(ext)
 build: $(ext_dl)
 endif
 
-pkg_extra := GIT-VERSION-FILE NEWS ChangeLog LATEST
+pkg_extra += GIT-VERSION-FILE NEWS ChangeLog LATEST
 ChangeLog: GIT-VERSION-FILE .wrongdoc.yml
 	$(WRONGDOC) prepare
+NEWS LATEST: ChangeLog
 
 manifest:
 	$(RM) .manifest
 	$(MAKE) .manifest
 
-.manifest: ChangeLog
+.manifest: $(pkg_extra)
 	(git ls-files && for i in $@ $(pkg_extra); do echo $$i; done) | \
 		LC_ALL=C sort > $@+
 	cmp $@+ $@ || mv $@+ $@
 	$(RM) $@+
 
-doc:: .document .wrongdoc.yml
+doc:: .document .wrongdoc.yml $(pkg_extra)
 	-find lib -type f -name '*.rbc' -exec rm -f '{}' ';'
 	-find ext -type f -name '*.rbc' -exec rm -f '{}' ';'
 	$(RM) -r doc
