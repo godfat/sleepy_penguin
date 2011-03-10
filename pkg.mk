@@ -44,6 +44,8 @@ $(ext_dl): $(ext_src) $(ext_pfx_src) $(ext_pfx)/$(ext)/Makefile
 	$(MAKE) -C $(@D)
 lib := $(lib):$(ext_pfx)/$(ext)
 build: $(ext_dl)
+else
+build:
 endif
 
 pkg_extra += GIT-VERSION-FILE NEWS ChangeLog LATEST
@@ -145,7 +147,7 @@ test_units := $(wildcard test/test_*.rb)
 test: test-unit
 test-unit: $(test_units)
 $(test_units): build
-	$(RUBY) -I $(lib) $@
+	$(RUBY) -I $(lib) $@ $(RUBY_TEST_OPTS)
 
 # this requires GNU coreutils variants
 ifneq ($(RSYNC_DEST),)
