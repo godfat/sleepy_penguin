@@ -1,6 +1,7 @@
 require 'test/unit'
 require 'fcntl'
 require 'tempfile'
+require 'set'
 $-w = true
 require 'sleepy_penguin'
 
@@ -13,7 +14,7 @@ class TestInotify < Test::Unit::TestCase
   end
 
   def test_constants
-    Inotify.constants.each do |const|
+    (Inotify.constants - IO.constants).each do |const|
       case const.to_sym
       when :Event, :Enumerator
       else
