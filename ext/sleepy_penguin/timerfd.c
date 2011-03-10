@@ -124,14 +124,13 @@ static VALUE expirations(VALUE self)
 	return ULL2NUM(buf);
 }
 #else /* ! HAVE_RB_THREAD_BLOCKING_REGION */
-#include "nonblock.h"
 static VALUE expirations(VALUE self)
 {
 	int fd = rb_sp_fileno(self);
 	uint64_t buf;
 	ssize_t r;
 
-	set_nonblock(fd);
+	rb_sp_set_nonblock(fd);
 retry:
 	r = read(fd, &buf, sizeof(uint64_t));
 	if (r == -1) {

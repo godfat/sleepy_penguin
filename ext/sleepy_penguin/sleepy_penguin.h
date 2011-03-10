@@ -16,6 +16,7 @@ unsigned rb_sp_get_uflags(VALUE klass, VALUE flags);
 int rb_sp_get_flags(VALUE klass, VALUE flags);
 int rb_sp_io_closed(VALUE io);
 int rb_sp_fileno(VALUE io);
+void rb_sp_set_nonblock(int fd);
 
 #define get_uflags rb_sp_get_uflags
 #define get_flags rb_sp_get_flags

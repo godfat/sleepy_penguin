@@ -1,6 +1,5 @@
 #ifdef HAVE_SYS_SIGNALFD_H
 #include "sleepy_penguin.h"
-#include "nonblock.h"
 #include <sys/signalfd.h>
 static ID id_for_fd, id_list;
 static VALUE ssi_members;
@@ -181,7 +180,7 @@ static ssize_t do_sfd_read(struct signalfd_siginfo *ssi)
 	int fd = ssi->ssi_fd;
 	ssize_t r;
 
-	set_nonblock(fd);
+	rb_sp_set_nonblock(fd);
 
 	do
 		r = read(fd, ssi, sizeof(struct signalfd_siginfo));

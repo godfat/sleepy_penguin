@@ -1,6 +1,5 @@
 #ifdef HAVE_SYS_INOTIFY_H
 #include "sleepy_penguin.h"
-#include "nonblock.h"
 #include <sys/inotify.h>
 #include <sys/ioctl.h>
 static ID id_for_fd, id_inotify_buf, id_inotify_tmp, id_mask;
@@ -219,7 +218,7 @@ static VALUE take(int argc, VALUE *argv, VALUE self)
 	len = RSTRING_LEN(buf);
 	ptr = (struct inotify_event *)RSTRING_PTR(buf);
 	do {
-		set_nonblock(fd);
+		rb_sp_set_nonblock(fd);
 		r = read(fd, ptr, len);
 		if (r == 0 || (r < 0 && errno == EINVAL)) {
 			/* resize internal buffer */

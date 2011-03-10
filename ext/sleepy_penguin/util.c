@@ -120,3 +120,16 @@ int rb_sp_fileno(VALUE io)
 	GetOpenFile(io, fptr);
 	return FPTR_TO_FD(fptr);
 }
+
+void rb_sp_set_nonblock(int fd)
+{
+	int flags = fcntl(fd, F_GETFL);
+
+	if (flags == -1)
+		rb_sys_fail("fcntl(F_GETFL)");
+	if ((flags & O_NONBLOCK) == O_NONBLOCK)
+		return;
+	flags = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+	if (flags == -1)
+		rb_sys_fail("fcntl(F_SETFL)");
+}

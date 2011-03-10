@@ -1,7 +1,6 @@
 #ifdef HAVE_SYS_EVENTFD_H
 #include "sleepy_penguin.h"
 #include <sys/eventfd.h>
-#include "nonblock.h"
 static ID id_for_fd;
 
 /*
@@ -131,7 +130,7 @@ static VALUE incr(VALUE self, VALUE value)
 	uint64_t val = (uint64_t)NUM2ULL(value);
 	ssize_t w;
 
-	set_nonblock(fd);
+	rb_sp_set_nonblock(fd);
 retry:
 	w = write(fd, &val, sizeof(uint64_t));
 	if (w == -1) {
@@ -149,7 +148,7 @@ static VALUE getvalue(VALUE self)
 	uint64_t val;
 	ssize_t r;
 
-	set_nonblock(fd);
+	rb_sp_set_nonblock(fd);
 retry:
 	r = read(fd, &val, sizeof(uint64_t));
 	if (r == -1) {
@@ -176,7 +175,7 @@ static VALUE value_nonblock(VALUE self)
 	uint64_t val;
 	ssize_t r;
 
-	set_nonblock(fd);
+	rb_sp_set_nonblock(fd);
 	r = read(fd, &val, sizeof(uint64_t));
 	if (r == -1)
 		rb_sys_fail("read(eventfd)");
@@ -198,7 +197,7 @@ static VALUE incr_nonblock(VALUE self, VALUE value)
 	uint64_t val = (uint64_t)NUM2ULL(value);
 	ssize_t w;
 
-	set_nonblock(fd);
+	rb_sp_set_nonblock(fd);
 	w = write(fd, &val, sizeof(uint64_t));
 	if (w == -1)
 		rb_sys_fail("write(eventfd)");
