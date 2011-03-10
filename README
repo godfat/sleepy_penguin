@@ -8,14 +8,14 @@ timerfd, inotify, signalfd and epoll interfaces are provided.
 
 * Thread-safe blocking operations under both Ruby 1.8 and 1.9.
 
-* Mostly working under Rubinius and Ruby 1.9
-
 * IO-like objects are backwards-compatible with IO.select.
 
-* Epoll interface is fork-safe
+* Epoll interface is fork-safe and GC-safe
 
 * Unlike portable event frameworks, the Linux-only Epoll interface
   allows using edge-triggered I/O for possibly improved performance
+
+* Fully-documented and user-friendly API
 
 == Install
 
