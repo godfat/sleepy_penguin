@@ -12,10 +12,14 @@ class TestSignalFD < Test::Unit::TestCase
 
   def setup
     @sfd = nil
+    trap(:USR1, "IGNORE")
+    trap(:USR2, "IGNORE")
   end
 
   def teardown
     @sfd.close if @sfd && ! @sfd.closed?
+    trap(:USR1, "DEFAULT")
+    trap(:USR2, "DEFAULT")
   end
 
   def test_new_with_flags
@@ -34,6 +38,21 @@ class TestSignalFD < Test::Unit::TestCase
     siginfo = @sfd.take
     assert_equal Signal.list["USR1"], siginfo.signo
     assert_equal pid, siginfo.pid
+    assert Process.waitpid2(pid)[1].success?
+  end if RUBY_VERSION =~ %r{\A1\.9}
+
+  def test_take_nonblock
+    @sfd = SignalFD.new(%w(USR1), :NONBLOCK)
+    assert_nil @sfd.take(true)
+    assert_nil IO.select [ @sfd ], nil, nil, 0
+    pid = fork { sleep 0.01; Process.kill(:USR1, Process.ppid) }
+    siginfo = @sfd.take(true)
+    if siginfo
+      assert_equal Signal.list["USR1"], siginfo.signo
+      assert_equal pid, siginfo.pid
+    else
+      warn "WARNING: SignalFD#take(nonblock=true) broken"
+    end
     assert Process.waitpid2(pid)[1].success?
   end if RUBY_VERSION =~ %r{\A1\.9}
 

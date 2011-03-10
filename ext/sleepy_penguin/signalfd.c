@@ -171,28 +171,37 @@ static VALUE sfd_read(void *args)
 
 /*
  * call-seq:
- *	sfd.take -> SignalFD::SigInfo object
+ *	sfd.take([nonblock]) -> SignalFD::SigInfo object or +nil+
  *
  * Returns the next SigInfo object representing a received signal.
+ * If +nonblock+ is specified and true, this may return +nil+
  */
-static VALUE sfd_take(VALUE self)
+static VALUE sfd_take(int argc, VALUE *argv, VALUE self)
 {
 	VALUE rv = ssi_alloc(cSigInfo);
 	struct signalfd_siginfo *ssi = DATA_PTR(rv);
 	ssize_t r;
 	int fd;
+	VALUE nonblock;
 
-	fd = ssi->ssi_fd = rb_sp_fileno(self);
-	blocking_io_prepare(fd);
+	rb_scan_args(argc, argv, "01", &nonblock);
+	fd = rb_sp_fileno(self);
+	if (RTEST(nonblock))
+		rb_sp_set_nonblock(fd);
+	else
+		blocking_io_prepare(fd);
 retry:
+	ssi->ssi_fd = fd;
 	r = (ssize_t)rb_sp_io_region(sfd_read, ssi);
 	if (r == -1) {
+		if (errno == EAGAIN && RTEST(nonblock))
+			return Qnil;
 		if (rb_io_wait_readable(fd))
 			goto retry;
 		rb_sys_fail("read(signalfd)");
 	}
 	if (r == 0)
-		rb_eof_error();
+		rb_eof_error(); /* does this ever happen? */
 	return rv;
 }
 
@@ -232,7 +241,12 @@ void sleepy_penguin_init_signalfd(void)
 	 * an alternative to Signal.trap that may be monitored using
 	 * IO.select or Epoll.
 	 *
-	 * It is not supported under (Matz) Ruby 1.8
+         * SignalFD appears interact unpredictably with YARV (Ruby 1.9) signal
+         * handling and has been unreliable in our testing. Since Ruby has a
+         * decent signal handling interface anyways, this class is less useful
+         * than signalfd() in a C-only environment.
+         *
+	 * It is not supported at all under (Matz) Ruby 1.8.
 	 */
 	cSignalFD = rb_define_class_under(mSleepyPenguin, "SignalFD", rb_cIO);
 
@@ -273,7 +287,7 @@ void sleepy_penguin_init_signalfd(void)
 	NODOC_CONST(cSignalFD, "CLOEXEC", INT2NUM(SFD_CLOEXEC));
 #endif
 
-	rb_define_method(cSignalFD, "take", sfd_take, 0);
+	rb_define_method(cSignalFD, "take", sfd_take, -1);
 	rb_define_method(cSignalFD, "update!", update_bang, -1);
 	id_for_fd = rb_intern("for_fd");
 	ssi_members = rb_ary_new();
