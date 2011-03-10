@@ -14,6 +14,7 @@ class TestEventFD < Test::Unit::TestCase
       assert_kind_of Integer, EventFD::CLOEXEC
     defined?(EventFD::SEMAPHORE) and
       assert_kind_of Integer, EventFD::SEMAPHORE
+    assert_equal 0xfffffffffffffffe, EventFD::MAX
   end
 
   def test_new
