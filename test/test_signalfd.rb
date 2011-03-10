@@ -1,4 +1,9 @@
 require 'test/unit'
+require "dl"
+begin
+  require "dl/func"
+rescue LoadError
+end
 $-w = true
 require 'sleepy_penguin'
 
@@ -30,7 +35,7 @@ class TestSignalFD < Test::Unit::TestCase
     assert_equal Signal.list["USR1"], siginfo.signo
     assert_equal pid, siginfo.pid
     assert Process.waitpid2(pid)[1].success?
-  end
+  end if RUBY_VERSION =~ %r{\A1\.9}
 
   def test_update
     assert_nothing_raised do
@@ -41,4 +46,25 @@ class TestSignalFD < Test::Unit::TestCase
       @sfd.update! [ Signal.list["USR1"], Signal.list["USR2"] ]
     end
   end
-end if RUBY_VERSION =~ %r{\A1\.9} && defined?(SleepyPenguin::SignalFD)
+
+  def test_with_sigqueue
+    sig = Signal.list["USR2"]
+    @sfd = SignalFD.new(:USR2)
+    libc = DL::Handle.new("libc.so.6")
+    if defined?(DL::Function)
+      sigqueue = libc["sigqueue"]
+      sigqueue = DL::CFunc.new(sigqueue, DL::TYPE_INT, "sigqueue")
+      args = [DL::TYPE_INT, DL::TYPE_INT,DL::TYPE_INT]
+      sigqueue = DL::Function.new(sigqueue, args, DL::TYPE_INT)
+    else
+      sigqueue = libc["sigqueue", "IIII"]
+    end
+    pid = fork { sleep 0.01; sigqueue.call(Process.ppid, sig, 666)  }
+    siginfo = @sfd.take
+    assert_equal sig, siginfo.signo
+    assert_equal pid, siginfo.pid
+    assert Process.waitpid2(pid)[1].success?
+    assert_equal 666, siginfo.ptr
+    assert_equal 666, siginfo.int
+  end if RUBY_VERSION =~ %r{\A1\.9}
+end if defined?(SleepyPenguin::SignalFD)
