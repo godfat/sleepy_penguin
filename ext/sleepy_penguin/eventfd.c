@@ -100,7 +100,7 @@ retry:
  * the counter to zero.
  *
  * If created as a semaphore, this decrements the counter value by one
- * and returns one.
+ * and returns +1+.
  *
  * If the counter is zero at the time of the call, this will block until
  * the counter becomes non-zero.
