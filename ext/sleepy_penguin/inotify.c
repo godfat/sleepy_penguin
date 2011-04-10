@@ -4,7 +4,8 @@
 #include <sys/ioctl.h>
 #include "missing_inotify.h"
 #if defined(RFILE) && defined(HAVE_ST_FD) && \
-    defined(HAVE_RB_THREAD_BLOCKING_REGION)
+    defined(HAVE_RB_THREAD_BLOCKING_REGION) && \
+  ! defined(HAVE_RB_THREAD_IO_BLOCKING_REGION)
 #  define NOGVL_CLOSE
 #endif
 
