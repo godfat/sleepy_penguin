@@ -520,10 +520,12 @@ static VALUE epclose(VALUE self)
 		} else if (ep->fd == -1) {
 			rb_raise(rb_eIOError, "closed");
 		} else {
-			int e = close(ep->fd);
+			int err;
+			int fd = ep->fd;
 
 			ep->fd = -1;
-			if (e == -1)
+			err = close(fd);
+			if (err == -1)
 				rb_sys_fail("close");
 		}
 	} else {
