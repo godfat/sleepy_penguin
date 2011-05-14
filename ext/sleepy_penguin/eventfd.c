@@ -157,7 +157,7 @@ void sleepy_penguin_init_eventfd(void)
 	 * the maximum value that may be stored in an EventFD,
 	 * currently 0xfffffffffffffffe
 	 */
-	rb_define_const(cEventFD, "MAX", ULL2NUM(0xfffffffffffffffe));
+	rb_define_const(cEventFD, "MAX", ULL2NUM(0xfffffffffffffffeULL));
 
 #ifdef EFD_NONBLOCK
 	NODOC_CONST(cEventFD, "NONBLOCK", INT2NUM(EFD_NONBLOCK));
