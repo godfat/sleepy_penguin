@@ -113,7 +113,7 @@ retry:
  * the counter becomes non-zero unless +nonblock+ is +true+, in which
  * case it returns +nil+.
  */
-static VALUE getvalue(int argc, VALUE argv, VALUE self)
+static VALUE getvalue(int argc, VALUE *argv, VALUE self)
 {
 	struct efd_args x;
 	ssize_t w;
