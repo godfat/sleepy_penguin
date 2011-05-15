@@ -129,26 +129,29 @@ class TestEpoll < Test::Unit::TestCase
 
   def test_signal_safe
     time = {}
-    trap(:USR1) { time[:USR1] = Time.now; sleep 0.1; @wr.write '.' }
+    trap(:USR1) { time[:USR1] ||= Time.now; sleep 0.1; @wr.write '.' }
     @ep.add @rd, Epoll::IN
     tmp = []
     pid = fork do
-      sleep 0.1 # slightly racy :<
-      Process.kill(:USR1, Process.ppid)
+      4.times do
+        sleep 0.1 # slightly racy :<
+        Process.kill(:USR1, Process.ppid)
+      end
     end
     time[:START_WAIT] = Time.now
     begin
       @ep.wait { |flags, obj| tmp << [ flags, obj ]; time[:EP] = Time.now }
     rescue Errno::EINTR
+      puts "EINTR"
       retry
     end
     assert_equal([[Epoll::IN, @rd]], tmp)
     _, status = Process.waitpid2(pid)
     assert status.success?
     assert((time[:USR1] - time[:START_WAIT]) >= 0.1)
-    assert((time[:USR1] - time[:START_WAIT]) < 0.15)
+    assert((time[:USR1] - time[:START_WAIT]) < 0.25)
     assert((time[:EP] - time[:USR1]) >= 0.1)
-    assert((time[:EP] - time[:USR1]) < 0.15)
+    assert((time[:EP] - time[:USR1]) < 0.25)
     ensure
       trap(:USR1, 'DEFAULT')
   end unless RBX

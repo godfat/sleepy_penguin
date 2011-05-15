@@ -1,6 +1,7 @@
 #include "sleepy_penguin.h"
 #include <sys/epoll.h>
 #include <pthread.h>
+#include <time.h>
 #include "missing_epoll.h"
 #ifdef HAVE_RUBY_ST_H
 #  include <ruby/st.h>
@@ -303,6 +304,36 @@ static VALUE epwait_result(struct rb_epoll *ep, int n)
 	return INT2NUM(n);
 }
 
+static int epoll_expired_p(struct timespec *expire, struct rb_epoll *ep)
+{
+	struct timespec now;
+
+	fprintf(stderr, "old_timeout: %d\n", ep->timeout);
+	if (ep->timeout < 0)
+		return 0;
+	if (ep->timeout == 0)
+		return 1;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	if ((expire->tv_sec > now.tv_sec) ||
+	    (expire->tv_sec == now.tv_sec) &&
+	     (expire->tv_nsec < now.tv_nsec)) {
+		now.tv_sec = expire->tv_sec - now.tv_sec;
+		now.tv_nsec = expire->tv_nsec - now.tv_nsec;
+		if (now.tv_nsec < 0) {
+			now.tv_nsec += 1000000000;
+			now.tv_sec--;
+		}
+		ep->timeout = (now.tv_sec * 1000);
+		ep->timeout += (now.tv_nsec + 500000) / 1000000;
+		if (ep->timeout < 0)
+			ep->timeout = 0;
+		fprintf(stderr, "new_timeout: %d\n", ep->timeout);
+		return 0;
+	}
+	return 1;
+}
+
 #if defined(HAVE_RB_THREAD_BLOCKING_REGION)
 static VALUE nogvl_wait(void *args)
 {
@@ -314,7 +345,17 @@ static VALUE nogvl_wait(void *args)
 
 static VALUE real_epwait(struct rb_epoll *ep)
 {
-	int n = (int)rb_sp_io_region(nogvl_wait, ep);
+	int n;
+	struct timespec expire;
+
+	if (ep->timeout > 0) {
+		clock_gettime(CLOCK_MONOTONIC, &expire);
+		expire.tv_sec += ep->timeout / 1000;
+		expire.tv_nsec += (ep->timeout % 1000) * 1000000;
+	}
+	do {
+		n = (int)rb_sp_io_region(nogvl_wait, ep);
+	} while (n == -1 && errno == EINTR && ! epoll_expired_p(&expire, ep));
 
 	return epwait_result(ep, n);
 }
@@ -343,9 +384,11 @@ static int safe_epoll_wait(struct rb_epoll *ep)
 {
 	int n;
 
-	TRAP_BEG;
-	n = epoll_wait(ep->fd, ep->events, ep->maxevents, 0);
-	TRAP_END;
+	do {
+		TRAP_BEG;
+		n = epoll_wait(ep->fd, ep->events, ep->maxevents, 0);
+		TRAP_END;
+	} while (n == -1 && errno == EINTR);
 
 	return n;
 }
