@@ -115,27 +115,4 @@ class TestInotify < Test::Unit::TestCase
     end
     assert_equal 0, nr
   end
-
-  def test_close_threadable
-    ino = Inotify.new
-    tmp = []
-    thr = Thread.new do
-      until ino.closed?
-        tmp << Time.now
-        Thread.pass
-      end
-    end
-    t0 = Time.now
-    ino.close
-    t1 = Time.now
-    between = []
-    thr.join
-    tmp.each do |t|
-      if t > t0 && t < t1
-        between << t
-      end
-    end
-    assert tmp.size > 0, "tmp.size=#{tmp.size}"
-    assert between.size > 0, "between.size=#{between.size}"
-  end if RUBY_VERSION.to_f >= 1.9
 end
