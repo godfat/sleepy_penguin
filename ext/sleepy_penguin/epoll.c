@@ -7,7 +7,7 @@
 #else
 #  include <st.h>
 #endif
-
+#include "missing_rb_thread_fd_close.h"
 #define EP_RECREATE (-2)
 
 static st_table *active;
@@ -524,6 +524,7 @@ static VALUE epclose(VALUE self)
 			int fd = ep->fd;
 
 			ep->fd = -1;
+			rb_thread_fd_close(fd);
 			err = close(fd);
 			if (err == -1)
 				rb_sys_fail("close");
