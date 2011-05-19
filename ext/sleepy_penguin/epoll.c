@@ -642,6 +642,15 @@ static VALUE init_copy(VALUE copy, VALUE orig)
 	return copy;
 }
 
+/* occasionally it's still useful to lookup aliased IO objects
+ * based on for debugging */
+static int my_fileno(VALUE obj)
+{
+	if (T_FIXNUM == TYPE(obj))
+		return FIX2INT(obj);
+	return rb_sp_fileno(obj);
+}
+
 /*
  * call-seq:
  *	epoll.io_for(io)	-> object
@@ -654,7 +663,7 @@ static VALUE io_for(VALUE self, VALUE obj)
 {
 	struct rb_epoll *ep = ep_get(self);
 
-	return rb_ary_entry(ep->marks, rb_sp_fileno(obj));
+	return rb_ary_entry(ep->marks, my_fileno(obj));
 }
 
 /*
@@ -668,7 +677,7 @@ static VALUE flags_for(VALUE self, VALUE obj)
 {
 	struct rb_epoll *ep = ep_get(self);
 
-	return rb_ary_entry(ep->flag_cache, rb_sp_fileno(obj));
+	return rb_ary_entry(ep->flag_cache, my_fileno(obj));
 }
 
 /*
@@ -683,7 +692,7 @@ static VALUE include_p(VALUE self, VALUE obj)
 {
 	struct rb_epoll *ep = ep_get(self);
 
-	return NIL_P(rb_ary_entry(ep->marks, rb_sp_fileno(obj))) ? Qfalse : Qtrue;
+	return NIL_P(rb_ary_entry(ep->marks, my_fileno(obj))) ? Qfalse : Qtrue;
 }
 
 /*

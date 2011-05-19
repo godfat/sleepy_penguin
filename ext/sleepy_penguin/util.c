@@ -110,12 +110,6 @@ int rb_sp_fileno(VALUE io)
 {
 	rb_io_t *fptr;
 
-	switch (TYPE(io)) {
-	case T_FIXNUM: return FIX2INT(io);
-	case T_FILE:
-		GetOpenFile(io, fptr);
-		return FPTR_TO_FD(fptr);
-	}
 	io = rb_convert_type(io, T_FILE, "IO", "to_io");
 	GetOpenFile(io, fptr);
 	return FPTR_TO_FD(fptr);
