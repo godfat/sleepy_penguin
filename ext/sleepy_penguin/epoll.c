@@ -65,7 +65,7 @@ static void gcfree(void *ptr)
 		st_delete(active, &key, NULL);
 	}
 	if (NIL_P(ep->io) && ep->fd >= 0) {
-		/* can't raise during GC */
+		/* can't raise during GC, and close() never fails in Linux */
 		(void)close(ep->fd);
 		errno = 0;
 	}
