@@ -749,8 +749,8 @@ void sleepy_penguin_init_epoll(void)
 	 * Document-class: SleepyPenguin::Epoll::IO
 	 *
 	 * Epoll::IO is an internal class.  Its only purpose is to be
-	 * compatible with IO.select and related methods  and should not
-	 * be used directly, use Epoll instead.
+	 * compatible with IO.select and related methods and should
+	 * never be used directly, use Epoll instead.
 	 */
 	cEpoll_IO = rb_define_class_under(cEpoll, "IO", rb_cIO);
 	rb_define_method(cEpoll, "initialize", init, -1);
