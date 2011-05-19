@@ -4,7 +4,7 @@
 #include <sys/ioctl.h>
 #include "missing_inotify.h"
 
-static ID id_for_fd, id_inotify_buf, id_inotify_tmp, id_mask;
+static ID id_inotify_buf, id_inotify_tmp, id_mask;
 static VALUE cEvent, checks;
 
 /*
@@ -34,7 +34,8 @@ static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 			rb_sys_fail("inotify_init1");
 	}
 
-	rv = rb_funcall(klass, id_for_fd, 1, INT2NUM(fd));
+	rv = INT2FIX(fd);
+	rv = rb_call_super(1, &rv);
 	rb_ivar_set(rv, id_inotify_buf, rb_str_new(0, 128));
 	rb_ivar_set(rv, id_inotify_tmp, rb_ary_new());
 
@@ -256,9 +257,7 @@ static VALUE events(VALUE self)
  */
 static VALUE init_copy(VALUE dest, VALUE orig)
 {
-	VALUE tmp;
-
-	dest = rb_call_super(1, &orig); /* copy all other ivars as-is */
+	rb_call_super(1, &orig); /* copy all other ivars as-is */
 	rb_ivar_set(dest, id_inotify_buf, rb_str_new(0, 128));
 
 	return dest;
@@ -339,7 +338,6 @@ void sleepy_penguin_init_inotify(void)
 	cEvent = rb_define_class_under(cInotify, "Event", cEvent);
 	rb_define_method(cEvent, "events", events, 0);
 	rb_define_singleton_method(cInotify, "new", s_new, -1);
-	id_for_fd = rb_intern("for_fd");
 	id_inotify_buf = rb_intern("@inotify_buf");
 	id_inotify_tmp = rb_intern("@inotify_tmp");
 	id_mask = rb_intern("mask");

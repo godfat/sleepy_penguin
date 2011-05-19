@@ -36,7 +36,7 @@ class TestInotify < Test::Unit::TestCase
     assert a.fileno != b.fileno
     abuf = a.instance_variable_get(:@inotify_buf)
     bbuf = b.instance_variable_get(:@inotify_buf)
-    assert abuf.object_id != bbuf.object_id
+    assert abuf.object_id != bbuf.object_id, "#{a.inspect} #{b.inspect}"
 
     atmp = a.instance_variable_get(:@inotify_tmp)
     btmp = b.instance_variable_get(:@inotify_tmp)

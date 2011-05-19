@@ -2,7 +2,6 @@
 #include "sleepy_penguin.h"
 #include <sys/timerfd.h>
 #include "value2timespec.h"
-static ID id_for_fd;
 
 /*
  * call-seq:
@@ -22,7 +21,7 @@ static ID id_for_fd;
  */
 static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 {
-	VALUE cid, fl;
+	VALUE cid, fl, rv;
 	int clockid, flags;
 	int fd;
 
@@ -40,7 +39,8 @@ static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 			rb_sys_fail("timerfd_create");
 	}
 
-	return rb_funcall(klass, id_for_fd, 1, INT2NUM(fd));
+	rv = INT2FIX(fd);
+	return rb_call_super(1, &rv);
 }
 
 static VALUE itimerspec2ary(struct itimerspec *its)
@@ -165,6 +165,5 @@ void sleepy_penguin_init_timerfd(void)
 	rb_define_method(cTimerFD, "settime", settime, 3);
 	rb_define_method(cTimerFD, "gettime", gettime, 0);
 	rb_define_method(cTimerFD, "expirations", expirations, -1);
-	id_for_fd = rb_intern("for_fd");
 }
 #endif /* HAVE_SYS_TIMERFD_H */

@@ -1,7 +1,6 @@
 #ifdef HAVE_SYS_EVENTFD_H
 #include "sleepy_penguin.h"
 #include <sys/eventfd.h>
-static ID id_for_fd;
 
 /*
  * call-seq:
@@ -21,7 +20,7 @@ static ID id_for_fd;
  */
 static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 {
-	VALUE _initval, _flags;
+	VALUE _initval, _flags, rv;
 	unsigned initval;
 	int flags;
 	int fd;
@@ -40,7 +39,8 @@ static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 			rb_sys_fail("eventfd");
 	}
 
-	return rb_funcall(klass, id_for_fd, 1, INT2NUM(fd));
+	rv = INT2FIX(fd);
+	return rb_call_super(1, &rv);
 }
 
 struct efd_args {
@@ -170,6 +170,5 @@ void sleepy_penguin_init_eventfd(void)
 #endif
 	rb_define_method(cEventFD, "value", getvalue, -1);
 	rb_define_method(cEventFD, "incr", incr, -1);
-	id_for_fd = rb_intern("for_fd");
 }
 #endif /* HAVE_SYS_EVENTFD_H */

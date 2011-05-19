@@ -2,7 +2,7 @@
 #include "sleepy_penguin.h"
 #include <signal.h>
 #include <sys/signalfd.h>
-static ID id_for_fd, id_list;
+static ID id_list;
 static VALUE ssi_members;
 static VALUE cSigInfo;
 
@@ -123,7 +123,7 @@ static VALUE update_bang(int argc, VALUE *argv, VALUE self)
  */
 static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 {
-	VALUE vmask, vflags;
+	VALUE vmask, vflags, rv;
 	sigset_t mask;
 	int flags;
 	int fd;
@@ -142,7 +142,9 @@ static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 			rb_sys_fail("signalfd");
 	}
 
-	return rb_funcall(klass, id_for_fd, 1, INT2NUM(fd));
+
+	rv = INT2FIX(fd);
+	return rb_call_super(1, &rv);
 }
 
 static VALUE ssi_alloc(VALUE klass)
@@ -290,7 +292,6 @@ void sleepy_penguin_init_signalfd(void)
 
 	rb_define_method(cSignalFD, "take", sfd_take, -1);
 	rb_define_method(cSignalFD, "update!", update_bang, -1);
-	id_for_fd = rb_intern("for_fd");
 	ssi_members = rb_ary_new();
 
 	NODOC_CONST(cSigInfo, "MEMBERS", ssi_members);
