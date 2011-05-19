@@ -87,7 +87,7 @@ static VALUE incr(int argc, VALUE *argv, VALUE self)
 	RTEST(nonblock) ? rb_sp_set_nonblock(x.fd) : blocking_io_prepare(x.fd);
 	x.val = (uint64_t)NUM2ULL(value);
 retry:
-	w = (ssize_t)rb_sp_io_region(efd_write, &x);
+	w = (ssize_t)rb_sp_fd_region(efd_write, &x, x.fd);
 	if (w == -1) {
 		if (errno == EAGAIN && RTEST(nonblock))
 			return Qfalse;
@@ -123,11 +123,11 @@ static VALUE getvalue(int argc, VALUE *argv, VALUE self)
 	x.fd = rb_sp_fileno(self);
 	RTEST(nonblock) ? rb_sp_set_nonblock(x.fd) : blocking_io_prepare(x.fd);
 retry:
-	w = (ssize_t)rb_sp_io_region(efd_read, &x);
+	w = (ssize_t)rb_sp_fd_region(efd_read, &x, x.fd);
 	if (w == -1) {
 		if (errno == EAGAIN && RTEST(nonblock))
 			return Qnil;
-		if (rb_io_wait_readable(x.fd))
+		if (rb_io_wait_readable(x.fd = rb_sp_fileno(self)))
 			goto retry;
 		rb_sys_fail("read(eventfd)");
 	}

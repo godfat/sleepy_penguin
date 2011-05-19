@@ -118,12 +118,18 @@ static void my_epoll_create(struct rb_epoll *ep)
 	ep->flag_cache = rb_ary_new();
 }
 
+static int ep_fd_check(struct rb_epoll *ep)
+{
+	if (ep->fd == -1)
+		rb_raise(rb_eIOError, "closed epoll descriptor");
+	return 1;
+}
+
 static void ep_check(struct rb_epoll *ep)
 {
 	if (ep->fd == EP_RECREATE)
 		my_epoll_create(ep);
-	if (ep->fd == -1)
-		rb_raise(rb_eIOError, "closed epoll descriptor");
+	ep_fd_check(ep);
 	assert(TYPE(ep->marks) == T_ARRAY && "marks not initialized");
 	assert(TYPE(ep->flag_cache) == T_ARRAY && "flag_cache not initialized");
 }
@@ -317,6 +323,7 @@ static int epoll_expired_p(uint64_t expire_at, struct rb_epoll *ep)
 {
 	uint64_t now;
 
+	ep_fd_check(ep);
 	if (ep->timeout < 0)
 		return 0;
 	if (ep->timeout == 0)
@@ -344,7 +351,7 @@ static VALUE real_epwait(struct rb_epoll *ep)
 	uint64_t expire_at = ep->timeout > 0 ? now_ms() + ep->timeout : 0;
 
 	do {
-		n = (int)rb_sp_io_region(nogvl_wait, ep);
+		n = (int)rb_sp_fd_region(nogvl_wait, ep, ep->fd);
 	} while (n == -1 && errno == EINTR && ! epoll_expired_p(expire_at, ep));
 
 	return epwait_result(ep, n);
@@ -378,7 +385,7 @@ static int safe_epoll_wait(struct rb_epoll *ep)
 		TRAP_BEG;
 		n = epoll_wait(ep->fd, ep->events, ep->maxevents, 0);
 		TRAP_END;
-	} while (n == -1 && errno == EINTR);
+	} while (n == -1 && errno == EINTR && ep_fd_check(ep));
 
 	return n;
 }
@@ -548,10 +555,10 @@ static VALUE epclose(VALUE self)
 	}
 
 	if (NIL_P(ep->io)) {
+		ep_fd_check(ep);
+
 		if (ep->fd == EP_RECREATE) {
-			ep->fd = -1;
-		} else if (ep->fd == -1) {
-			rb_raise(rb_eIOError, "closed epoll descriptor");
+			ep->fd = -1; /* success */
 		} else {
 			int err;
 			int fd = ep->fd;

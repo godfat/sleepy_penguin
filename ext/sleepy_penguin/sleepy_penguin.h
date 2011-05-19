@@ -30,6 +30,13 @@ VALUE rb_sp_io_region(rb_blocking_function_t *func, void *data);
 #  define blocking_io_prepare(fd) rb_sp_set_nonblock((fd))
 #endif
 
+#ifdef HAVE_RB_THREAD_IO_BLOCKING_REGION
+#  define rb_sp_fd_region(fn,data,fd) \
+          rb_thread_io_blocking_region((fn),(data),(fd))
+#else
+#  define rb_sp_fd_region(fn,data,fd) rb_sp_io_region(fn,data)
+#endif
+
 #define NODOC_CONST(klass,name,value) \
   rb_define_const((klass),(name),(value))
 #endif /* SLEEPY_PENGUIN_H */

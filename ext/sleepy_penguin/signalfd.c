@@ -195,11 +195,11 @@ static VALUE sfd_take(int argc, VALUE *argv, VALUE self)
 		blocking_io_prepare(fd);
 retry:
 	ssi->ssi_fd = fd;
-	r = (ssize_t)rb_sp_io_region(sfd_read, ssi);
+	r = (ssize_t)rb_sp_fd_region(sfd_read, ssi, fd);
 	if (r == -1) {
 		if (errno == EAGAIN && RTEST(nonblock))
 			return Qnil;
-		if (rb_io_wait_readable(fd))
+		if (rb_io_wait_readable(fd = rb_sp_fileno(self)))
 			goto retry;
 		rb_sys_fail("read(signalfd)");
 	}

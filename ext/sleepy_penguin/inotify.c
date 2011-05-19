@@ -181,7 +181,7 @@ static VALUE take(int argc, VALUE *argv, VALUE self)
 	else
 		blocking_io_prepare(args.fd);
 	do {
-		r = rb_sp_io_region(inread, &args);
+		r = rb_sp_fd_region(inread, &args, args.fd);
 		if (r == 0 /* Linux < 2.6.21 */
 		    ||
 		    (r < 0 && errno == EINVAL) /* Linux >= 2.6.21 */
@@ -199,6 +199,7 @@ static VALUE take(int argc, VALUE *argv, VALUE self)
 			if (errno == EAGAIN && RTEST(nonblock)) {
 				return Qnil;
 			} else {
+				args.fd = rb_sp_fileno(self);
 				if (!rb_io_wait_readable(args.fd))
 					rb_sys_fail("read(inotify)");
 			}

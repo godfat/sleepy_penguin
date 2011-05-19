@@ -125,11 +125,11 @@ static VALUE expirations(int argc, VALUE *argv, VALUE self)
 	else
 		blocking_io_prepare(fd);
 retry:
-	r = (ssize_t)rb_sp_io_region(tfd_read, &buf);
+	r = (ssize_t)rb_sp_fd_region(tfd_read, &buf, fd);
 	if (r == -1) {
 		if (errno == EAGAIN && RTEST(nonblock))
 			return Qnil;
-		if (rb_io_wait_readable(fd))
+		if (rb_io_wait_readable(fd = rb_sp_fileno(self)))
 			goto retry;
 		rb_sys_fail("read(timerfd)");
 	}

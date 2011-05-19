@@ -389,4 +389,12 @@ class TestEpoll < Test::Unit::TestCase
     assert ! @ep.include?(@wr)
     assert ! @ep.include?(@wr.fileno)
   end
+
+  def test_cross_thread_close
+    tmp = []
+    thr = Thread.new { sleep(1); @ep.close }
+    assert_raises(IOError) do
+      @ep.wait { |flags, obj| tmp << [ flags, obj ] }
+    end
+  end if RUBY_VERSION == "1.9.3"
 end
