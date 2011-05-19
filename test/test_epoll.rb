@@ -63,7 +63,7 @@ class TestEpoll < Test::Unit::TestCase
       exit!(1)
     }
     res = Process.waitall
-    res.each { |(pid,status)| assert status.success? }
+    res.each { |(_,status)| assert status.success? }
   end
 
   def test_tcp_connect_nonblock_edge
@@ -217,7 +217,7 @@ class TestEpoll < Test::Unit::TestCase
     assert_nothing_raised do
       4096.times do
         ep = Epoll.new
-        io = ep.to_io
+        assert_kind_of IO, ep.to_io
       end
     end
     assert ! @ep.closed?
@@ -300,7 +300,6 @@ class TestEpoll < Test::Unit::TestCase
       break
     end while true
     @ep.add(@wr, Epoll::OUT | Epoll::IN)
-    i = 0
     assert_equal 0, @ep.wait(nil, 0) { |flags,event| assert false }
   end
 
@@ -396,5 +395,6 @@ class TestEpoll < Test::Unit::TestCase
     assert_raises(IOError) do
       @ep.wait { |flags, obj| tmp << [ flags, obj ] }
     end
+    assert_nil thr.value
   end if RUBY_VERSION == "1.9.3"
 end

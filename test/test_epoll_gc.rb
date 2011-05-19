@@ -21,7 +21,7 @@ class TestEpollGC < Test::Unit::TestCase
 
   def add_pipe(m, depth = 0)
     if depth > 6000
-      rd, wr = IO.pipe
+      _, wr = IO.pipe
       warn "wr: #{wr.fileno}"
       @ep.__send__(m, wr, Epoll::OUT)
     else

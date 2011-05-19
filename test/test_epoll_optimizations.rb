@@ -29,19 +29,19 @@ class TestEpollOptimizations < Test::Unit::TestCase
     assert_nil err
     lines = io.readlines; io.close
     assert_equal 1, lines.grep(/^epoll_ctl/).size
-    assert_match /EPOLL_CTL_ADD/, lines.grep(/^epoll_ctl/)[0]
+    assert_match(/EPOLL_CTL_ADD/, lines.grep(/^epoll_ctl/)[0])
 
     io, err = Strace.me { @ep.set(@wr, Epoll::OUT | Epoll::ONESHOT) }
     assert_nil err
     lines = io.readlines; io.close
     assert_equal 1, lines.grep(/^epoll_ctl/).size
-    assert_match /EPOLL_CTL_MOD/, lines.grep(/^epoll_ctl/)[0]
+    assert_match(/EPOLL_CTL_MOD/, lines.grep(/^epoll_ctl/)[0])
 
     io, err = Strace.me { @ep.set(@wr, Epoll::OUT) }
     assert_nil err
     lines = io.readlines; io.close
     assert_equal 1, lines.grep(/^epoll_ctl/).size
-    assert_match /EPOLL_CTL_MOD/, lines.grep(/^epoll_ctl/)[0]
+    assert_match(/EPOLL_CTL_MOD/, lines.grep(/^epoll_ctl/)[0])
     @wr.close
     @rd.close
 
@@ -50,7 +50,7 @@ class TestEpollOptimizations < Test::Unit::TestCase
     assert_nil err
     lines = io.readlines; io.close
     assert_equal 1, lines.grep(/^epoll_ctl/).size
-    assert_match /EPOLL_CTL_ADD/, lines.grep(/^epoll_ctl/)[0]
+    assert_match(/EPOLL_CTL_ADD/, lines.grep(/^epoll_ctl/)[0])
   end
 
   def test_delete
@@ -61,7 +61,7 @@ class TestEpollOptimizations < Test::Unit::TestCase
     assert_nil err
     lines = io.readlines; io.close
     assert_equal 1, lines.grep(/^epoll_ctl/).size
-    assert_match %r{=\s+0$}, lines.grep(/^epoll_ctl/)[0]
+    assert_match(%r{=\s+0$}, lines.grep(/^epoll_ctl/)[0])
 
     rv = true
     io, err = Strace.me { rv = @ep.delete(@wr) }
@@ -122,7 +122,7 @@ class TestEpollOptimizations < Test::Unit::TestCase
     assert_equal tmp, rv
     assert_nil err
     assert_equal 1, lines.grep(/^epoll_ctl/).size
-    assert_match %r{=\s+0$}, lines.grep(/^epoll_ctl/)[0]
+    assert_match(%r{=\s+0$}, lines.grep(/^epoll_ctl/)[0])
     assert_equal 0, lines.grep(/ENOENT/).size
   end
 
