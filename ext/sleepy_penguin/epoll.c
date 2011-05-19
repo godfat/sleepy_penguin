@@ -123,7 +123,7 @@ static void ep_check(struct rb_epoll *ep)
 	if (ep->fd == EP_RECREATE)
 		my_epoll_create(ep);
 	if (ep->fd == -1)
-		rb_raise(rb_eIOError, "closed");
+		rb_raise(rb_eIOError, "closed epoll descriptor");
 	assert(TYPE(ep->marks) == T_ARRAY && "marks not initialized");
 	assert(TYPE(ep->flag_cache) == T_ARRAY && "flag_cache not initialized");
 }
@@ -551,7 +551,7 @@ static VALUE epclose(VALUE self)
 		if (ep->fd == EP_RECREATE) {
 			ep->fd = -1;
 		} else if (ep->fd == -1) {
-			rb_raise(rb_eIOError, "closed");
+			rb_raise(rb_eIOError, "closed epoll descriptor");
 		} else {
 			int err;
 			int fd = ep->fd;
