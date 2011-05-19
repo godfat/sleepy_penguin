@@ -240,6 +240,9 @@ void sleepy_penguin_init_signalfd(void)
 	/*
 	 * Document-class: SleepyPenguin::SignalFD
 	 *
+	 * Use of this class is NOT recommended.  Ruby itself has a great
+	 * signal handling API and its implementation conflicts with this.
+	 *
 	 * A SignalFD is an IO object for accepting signals.  It provides
 	 * an alternative to Signal.trap that may be monitored using
 	 * IO.select or Epoll.
