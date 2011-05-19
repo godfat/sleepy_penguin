@@ -127,31 +127,33 @@ class TestEpoll < Test::Unit::TestCase
     assert_equal 2, tmp.size
   end
 
-  def test_signal_safe
+  def test_signal_safe_wait_forever
     time = {}
-    trap(:USR1) { time[:USR1] ||= Time.now; sleep 0.1; @wr.write '.' }
+    trap(:USR1) do
+      time[:USR1] = Time.now
+      sleep 0.5
+      @wr.write '.'
+    end
     @ep.add @rd, Epoll::IN
     tmp = []
     pid = fork do
-      4.times do
-        sleep 0.1 # slightly racy :<
-        Process.kill(:USR1, Process.ppid)
-      end
+      sleep 0.5 # slightly racy :<
+      Process.kill(:USR1, Process.ppid)
     end
     time[:START_WAIT] = Time.now
-    begin
-      @ep.wait { |flags, obj| tmp << [ flags, obj ]; time[:EP] = Time.now }
-    rescue Errno::EINTR
-      puts "EINTR"
-      retry
+    assert_nothing_raised do
+      @ep.wait do |flags, obj|
+        tmp << [ flags, obj ]
+        time[:EP] = Time.now
+      end
     end
     assert_equal([[Epoll::IN, @rd]], tmp)
     _, status = Process.waitpid2(pid)
-    assert status.success?
-    assert((time[:USR1] - time[:START_WAIT]) >= 0.1)
-    assert((time[:USR1] - time[:START_WAIT]) < 0.25)
-    assert((time[:EP] - time[:USR1]) >= 0.1)
-    assert((time[:EP] - time[:USR1]) < 0.25)
+    assert status.success?, status.inspect
+    usr1_delay = time[:USR1] - time[:START_WAIT]
+    assert_in_delta(0.5, usr1_delay, 0.1, "usr1_delay=#{usr1_delay}")
+    ep_delay = time[:EP] - time[:USR1]
+    assert_in_delta(0.5, ep_delay, 0.1, "ep1_delay=#{ep_delay}")
     ensure
       trap(:USR1, 'DEFAULT')
   end unless RBX

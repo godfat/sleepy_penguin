@@ -16,6 +16,15 @@ static const int step = 64; /* unlikely to grow unless you're huge */
 static VALUE cEpoll_IO;
 static ID id_for_fd;
 
+static uint64_t now_ms(void)
+{
+	struct timespec now;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+
+	return now.tv_sec * 1000 + (now.tv_nsec + 500000) / 1000000;
+}
+
 static void pack_event_data(struct epoll_event *event, VALUE obj)
 {
 	event->data.ptr = (void *)obj;
@@ -304,34 +313,20 @@ static VALUE epwait_result(struct rb_epoll *ep, int n)
 	return INT2NUM(n);
 }
 
-static int epoll_expired_p(struct timespec *expire, struct rb_epoll *ep)
+static int epoll_expired_p(uint64_t expire_at, struct rb_epoll *ep)
 {
-	struct timespec now;
+	uint64_t now;
 
-	fprintf(stderr, "old_timeout: %d\n", ep->timeout);
 	if (ep->timeout < 0)
 		return 0;
 	if (ep->timeout == 0)
 		return 1;
 
-	clock_gettime(CLOCK_MONOTONIC, &now);
-	if ((expire->tv_sec > now.tv_sec) ||
-	    (expire->tv_sec == now.tv_sec) &&
-	     (expire->tv_nsec < now.tv_nsec)) {
-		now.tv_sec = expire->tv_sec - now.tv_sec;
-		now.tv_nsec = expire->tv_nsec - now.tv_nsec;
-		if (now.tv_nsec < 0) {
-			now.tv_nsec += 1000000000;
-			now.tv_sec--;
-		}
-		ep->timeout = (now.tv_sec * 1000);
-		ep->timeout += (now.tv_nsec + 500000) / 1000000;
-		if (ep->timeout < 0)
-			ep->timeout = 0;
-		fprintf(stderr, "new_timeout: %d\n", ep->timeout);
-		return 0;
-	}
-	return 1;
+	now = now_ms();
+	if (now > expire_at)
+		return 1;
+	ep->timeout = (int)(expire_at - now);
+	return 0;
 }
 
 #if defined(HAVE_RB_THREAD_BLOCKING_REGION)
@@ -346,16 +341,11 @@ static VALUE nogvl_wait(void *args)
 static VALUE real_epwait(struct rb_epoll *ep)
 {
 	int n;
-	struct timespec expire;
+	uint64_t expire_at = ep->timeout > 0 ? now_ms() + ep->timeout : 0;
 
-	if (ep->timeout > 0) {
-		clock_gettime(CLOCK_MONOTONIC, &expire);
-		expire.tv_sec += ep->timeout / 1000;
-		expire.tv_nsec += (ep->timeout % 1000) * 1000000;
-	}
 	do {
 		n = (int)rb_sp_io_region(nogvl_wait, ep);
-	} while (n == -1 && errno == EINTR && ! epoll_expired_p(&expire, ep));
+	} while (n == -1 && errno == EINTR && ! epoll_expired_p(expire_at, ep));
 
 	return epwait_result(ep, n);
 }
