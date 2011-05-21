@@ -319,21 +319,19 @@ static VALUE epwait_result(struct rb_epoll *ep, int n)
 	return INT2NUM(n);
 }
 
-static int epoll_expired_p(uint64_t expire_at, struct rb_epoll *ep)
+static int epoll_resume_p(uint64_t expire_at, struct rb_epoll *ep)
 {
 	uint64_t now;
 
 	ep_fd_check(ep);
-	if (ep->timeout < 0)
-		return 0;
-	if (ep->timeout == 0)
-		return 1;
 
-	now = now_ms();
-	if (now > expire_at)
+	if (errno != EINTR)
+		return 0;
+	if (ep->timeout < 0)
 		return 1;
-	ep->timeout = (int)(expire_at - now);
-	return 0;
+	now = now_ms();
+	ep->timeout = now > expire_at ? 0 : (int)(expire_at - now);
+	return 1;
 }
 
 #if defined(HAVE_RB_THREAD_BLOCKING_REGION)
@@ -350,9 +348,9 @@ static VALUE real_epwait(struct rb_epoll *ep)
 	int n;
 	uint64_t expire_at = ep->timeout > 0 ? now_ms() + ep->timeout : 0;
 
-	do {
+	do
 		n = (int)rb_sp_fd_region(nogvl_wait, ep, ep->fd);
-	} while (n == -1 && errno == EINTR && ! epoll_expired_p(expire_at, ep));
+	while (n == -1 && epoll_resume_p(expire_at, ep));
 
 	return epwait_result(ep, n);
 }

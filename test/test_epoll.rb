@@ -139,6 +139,7 @@ class TestEpoll < Test::Unit::TestCase
     pid = fork do
       sleep 0.5 # slightly racy :<
       Process.kill(:USR1, Process.ppid)
+      exit!(0)
     end
     time[:START_WAIT] = Time.now
     assert_nothing_raised do
@@ -397,4 +398,30 @@ class TestEpoll < Test::Unit::TestCase
     end
     assert_nil thr.value
   end if RUBY_VERSION == "1.9.3"
+
+  def test_epoll_wait_signal_torture
+    usr1 = 0
+    empty = 0
+    nr = 1000
+    @ep.add(@rd, Epoll::IN)
+    tmp = []
+    trap(:USR1) { usr1 += 1 }
+    pid = fork do
+      trap(:USR1, "DEFAULT")
+      sleep 0.1
+      ppid = Process.ppid
+      nr.times { Process.kill(:USR1, ppid); sleep 0.01 }
+      @wr.syswrite('.')
+      exit!(0)
+    end
+    while tmp.empty?
+      assert_nothing_raised { @ep.wait(nil, 100) { |flags,obj| tmp << obj } }
+      empty += 1
+    end
+    _, status = Process.waitpid2(pid)
+    assert status.success?, status.inspect
+    assert usr1 > 0, "usr1: #{usr1}"
+    ensure
+      trap(:USR1, "DEFAULT")
+  end
 end
