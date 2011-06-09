@@ -399,6 +399,30 @@ class TestEpoll < Test::Unit::TestCase
     assert_nil thr.value
   end if RUBY_VERSION == "1.9.3"
 
+  def test_epoll_level_trigger
+    @ep.add(@wr, Epoll::OUT)
+
+    tmp = nil
+    @ep.wait { |flags, obj| tmp = obj }
+    assert_equal @wr, tmp
+
+    tmp = nil
+    @ep.wait { |flags, obj| tmp = obj }
+    assert_equal @wr, tmp
+
+    buf = '.' * 16384
+    begin
+      @wr.write_nonblock(buf)
+    rescue Errno::EAGAIN
+      break
+    end while true
+    @rd.read(16384)
+
+    tmp = nil
+    @ep.wait { |flags, obj| tmp = obj }
+    assert_equal @wr, tmp
+  end
+
   def test_epoll_wait_signal_torture
     usr1 = 0
     empty = 0
