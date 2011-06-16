@@ -2,7 +2,6 @@
 #include "sleepy_penguin.h"
 #include <signal.h>
 #include <sys/signalfd.h>
-static ID id_list;
 static VALUE ssi_members;
 static VALUE cSigInfo;
 

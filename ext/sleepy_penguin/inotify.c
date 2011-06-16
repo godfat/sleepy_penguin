@@ -232,7 +232,6 @@ static VALUE events(VALUE self)
 {
 	long len = RARRAY_LEN(checks);
 	VALUE *ptr = RARRAY_PTR(checks);
-	VALUE pair;
 	VALUE sym;
 	VALUE rv = rb_ary_new();
 	uint32_t mask;
