@@ -733,7 +733,7 @@ void sleepy_penguin_init_epoll(void)
 	 *	require "sleepy_penguin"
 	 *	include SleepyPenguin
 	 *
-	 * The SleepyPenguin namespace includes the Epoll, Inotify, SignalFD,
+	 * The SleepyPenguin namespace includes the Epoll, Inotify,
 	 * TimerFD, EventFD classes in its top level and no other constants.
 	 *
 	 * If you are uncomfortable including SleepyPenguin, you may also
@@ -746,7 +746,6 @@ void sleepy_penguin_init_epoll(void)
 	 * - SP::Epoll
 	 * - SP::EventFD
 	 * - SP::Inotify
-	 * - SP::SignalFD
 	 * - SP::TimerFD
 	 */
 	mSleepyPenguin = rb_define_module("SleepyPenguin");

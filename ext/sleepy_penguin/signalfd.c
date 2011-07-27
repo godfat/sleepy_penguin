@@ -242,6 +242,9 @@ void sleepy_penguin_init_signalfd(void)
 	 * Use of this class is NOT recommended.  Ruby itself has a great
 	 * signal handling API and its implementation conflicts with this.
 	 *
+	 * This class is currently disabled and the documentation is only
+	 * provided to describe what it would look like.
+	 *
 	 * A SignalFD is an IO object for accepting signals.  It provides
 	 * an alternative to Signal.trap that may be monitored using
 	 * IO.select or Epoll.
@@ -251,7 +254,7 @@ void sleepy_penguin_init_signalfd(void)
 	 * decent signal handling interface anyways, this class is less useful
 	 * than signalfd() in a C-only environment.
 	 *
-	 * It is not supported at all under (Matz) Ruby 1.8.
+	 * It is not supported at all.
 	 */
 	cSignalFD = rb_define_class_under(mSleepyPenguin, "SignalFD", rb_cIO);
 
