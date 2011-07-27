@@ -9,6 +9,7 @@
 #  include <st.h>
 #endif
 #include "missing_rb_thread_fd_close.h"
+#include "missing_rb_update_max_fd.h"
 #define EP_RECREATE (-2)
 
 static st_table *active;
@@ -113,6 +114,7 @@ static void my_epoll_create(struct rb_epoll *ep)
 		if (ep->fd == -1)
 			rb_sys_fail("epoll_create1");
 	}
+	rb_update_max_fd(ep->fd);
 	st_insert(active, (st_data_t)ep->fd, (st_data_t)ep);
 	ep->marks = rb_ary_new();
 	ep->flag_cache = rb_ary_new();
