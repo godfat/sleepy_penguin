@@ -93,6 +93,19 @@ class TestEpoll < Test::Unit::TestCase
     assert_equal [ [Epoll::OUT,  sock] ], tmp
   end
 
+  def test_edge_accept
+    host = '127.0.0.1'
+    srv = TCPServer.new(host, 0)
+    port = srv.addr[1]
+    sock = TCPSocket.new(host, port)
+    asock = srv.accept
+    assert_equal 3, asock.syswrite("HI\n")
+    @ep.add(asock, Epoll::OUT| Epoll::ET | Epoll::ONESHOT)
+    tmp = []
+    @ep.wait(1) { |flags, obj| tmp << [ flags, obj ] }
+    assert_equal [ [Epoll::OUT,  asock] ], tmp
+  end
+
   def teardown
     assert_nothing_raised do
       @rd.close unless @rd.closed?
