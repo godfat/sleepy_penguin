@@ -20,49 +20,50 @@ do { \
 } while (0)
 #endif
 
-static int safe_epoll_wait(struct rb_epoll *ep)
+static int safe_epoll_wait(struct ep_per_thread *ept)
 {
 	int n;
 
 	do {
 		TRAP_BEG;
-		n = epoll_wait(ep->fd, ep->events, ep->maxevents, 0);
+		n = epoll_wait(ept->ep->fd, ept->events, ept->maxevents, 0);
 		TRAP_END;
-	} while (n == -1 && errno == EINTR && ep_fd_check(ep));
+	} while (n == -1 && errno == EINTR && ep_fd_check(ept->ep));
 
 	return n;
 }
 
-static int epwait_forever(struct rb_epoll *ep)
+static int epwait_forever(struct ep_per_thread *ept)
 {
 	int n;
 
 	do {
-		(void)rb_io_wait_readable(ep->fd);
-		n = safe_epoll_wait(ep);
+		(void)rb_io_wait_readable(ept->ep->fd);
+		n = safe_epoll_wait(ept);
 	} while (n == 0);
 
 	return n;
 }
 
-static int epwait_timed(struct rb_epoll *ep)
+static int epwait_timed(struct ep_per_thread *ept)
 {
 	struct timeval tv;
 
-	tv.tv_sec = ep->timeout / 1000;
-	tv.tv_usec = (ep->timeout % 1000) * 1000;
+	tv.tv_sec = ept->timeout / 1000;
+	tv.tv_usec = (ept->timeout % 1000) * 1000;
 
 	for (;;) {
 		struct timeval t0, now, diff;
 		int n;
+		int fd = ept->ep->fd;
 		fd_set rfds;
 
 		FD_ZERO(&rfds);
-		FD_SET(ep->fd, &rfds);
+		FD_SET(fd, &rfds);
 
 		gettimeofday(&t0, NULL);
-		(void)rb_thread_select(ep->fd + 1, &rfds, NULL, NULL, &tv);
-		n = safe_epoll_wait(ep);
+		(void)rb_thread_select(fd + 1, &rfds, NULL, NULL, &tv);
+		n = safe_epoll_wait(ept);
 		if (n != 0)
 			return n;
 
@@ -79,16 +80,16 @@ static int epwait_timed(struct rb_epoll *ep)
 	return -1;
 }
 
-static VALUE real_epwait(struct rb_epoll *ep)
+static VALUE real_epwait(struct ep_per_thread *ept)
 {
 	int n;
 
-	if (ep->timeout == -1)
-		n = epwait_forever(ep);
-	else if (ep->timeout == 0)
-		n = safe_epoll_wait(ep);
+	if (ept->timeout == -1)
+		n = epwait_forever(ept);
+	else if (ept->timeout == 0)
+		n = safe_epoll_wait(ept);
 	else
-		n = epwait_timed(ep);
+		n = epwait_timed(ept);
 
-	return epwait_result(ep, n);
+	return epwait_result(ept, n);
 }

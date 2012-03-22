@@ -1,7 +1,9 @@
 require 'test/unit'
 require 'fcntl'
 require 'socket'
+require 'thread'
 $-w = true
+Thread.abort_on_exception = true
 
 require 'sleepy_penguin'
 
@@ -439,7 +441,7 @@ class TestEpoll < Test::Unit::TestCase
   def test_epoll_wait_signal_torture
     usr1 = 0
     empty = 0
-    nr = 1000
+    nr = 100
     @ep.add(@rd, Epoll::IN)
     tmp = []
     trap(:USR1) { usr1 += 1 }
@@ -461,4 +463,48 @@ class TestEpoll < Test::Unit::TestCase
     ensure
       trap(:USR1, "DEFAULT")
   end if ENV["STRESS"].to_i != 0
+
+  def test_wait_one_event_per_thread
+    thr = []
+    pipes = {}
+    lock = Mutex.new
+    maxevents = 1
+    ok = []
+    nr = 10
+    nr.times do
+      r, w = IO.pipe
+      pipes[r] = w
+      @ep.add(r, Epoll::IN | Epoll::ET | Epoll::ONESHOT)
+
+      t = Thread.new do
+        sleep 2
+        events = 0
+        @ep.wait(maxevents) do |_,obj|
+          assert pipes.include?(obj), "#{obj.inspect} is unknown"
+          lock.synchronize { ok << obj }
+          events += 1
+        end
+        events
+      end
+      thr << t
+    end
+    pipes.each_value { |w| w.syswrite '.' }
+    thr.each do |t|
+      begin
+        t.run
+      rescue ThreadError
+      end
+    end
+
+    thr.each { |t| assert_equal 1, t.value }
+    assert_equal nr, ok.size, ok.inspect
+    assert_equal ok.size, ok.uniq.size, ok.inspect
+    assert_equal ok.map { |io| io.fileno }.sort,
+                 pipes.keys.map { |io| io.fileno }.sort
+  ensure
+    pipes.each do |r,w|
+      r.close
+      w.close
+    end
+  end
 end

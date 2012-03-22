@@ -12,6 +12,7 @@
 #include "missing_rb_update_max_fd.h"
 #define EP_RECREATE (-2)
 
+static pthread_key_t epoll_key;
 static st_table *active;
 static const int step = 64; /* unlikely to grow unless you're huge */
 static VALUE cEpoll_IO;
@@ -36,17 +37,59 @@ static VALUE unpack_event_data(struct epoll_event *event)
 	return (VALUE)event->data.ptr;
 }
 
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
+# define FLEX_ARRAY
+#elif defined(__GNUC__)
+# if (__GNUC__ >= 3)
+#  define FLEX_ARRAY
+# else
+#  define FLEX_ARRAY 0
+# endif
+#endif
+
 struct rb_epoll {
 	int fd;
-	int timeout;
-	int maxevents;
-	int capa;
-	struct epoll_event *events;
 	VALUE io;
 	VALUE marks;
 	VALUE flag_cache;
 	int flags;
 };
+
+struct ep_per_thread {
+	struct rb_epoll *ep;
+	int timeout;
+	int maxevents;
+	int capa;
+	struct epoll_event events[FLEX_ARRAY];
+};
+
+static struct ep_per_thread *ept_get(int maxevents)
+{
+	struct ep_per_thread *ept = pthread_getspecific(epoll_key);
+	int err;
+	size_t size;
+
+	if (ept && ept->capa >= maxevents)
+		goto out;
+
+	size = sizeof(struct ep_per_thread) +
+	       sizeof(struct epoll_event) * maxevents;
+
+	free(ept); /* free(NULL) works on glibc */
+	ept = malloc(size);
+	if (ept == NULL)
+		rb_memerror();
+	err = pthread_setspecific(epoll_key, ept);
+	if (err != 0) {
+		errno = err;
+		rb_sys_fail("pthread_setspecific");
+	}
+	ept->capa = maxevents;
+out:
+	ept->maxevents = maxevents;
+
+	return ept;
+}
 
 static struct rb_epoll *ep_get(VALUE self)
 {
@@ -70,7 +113,6 @@ static void gcfree(void *ptr)
 {
 	struct rb_epoll *ep = ptr;
 
-	xfree(ep->events);
 	if (ep->fd >= 0) {
 		st_data_t key = ep->fd;
 		st_delete(active, &key, NULL);
@@ -95,9 +137,7 @@ static VALUE alloc(VALUE klass)
 	ep->io = Qnil;
 	ep->marks = Qnil;
 	ep->flag_cache = Qnil;
-	ep->capa = step;
 	ep->flags = 0;
-	ep->events = xmalloc(sizeof(struct epoll_event) * ep->capa);
 
 	return self;
 }
@@ -296,10 +336,10 @@ out:
 	return io;
 }
 
-static VALUE epwait_result(struct rb_epoll *ep, int n)
+static VALUE epwait_result(struct ep_per_thread *ept, int n)
 {
 	int i;
-	struct epoll_event *epoll_event = ep->events;
+	struct epoll_event *epoll_event = ept->events;
 	VALUE obj_events, obj;
 
 	if (n == -1)
@@ -311,50 +351,44 @@ static VALUE epwait_result(struct rb_epoll *ep, int n)
 		rb_yield_values(2, obj_events, obj);
 	}
 
-	/* grow our event buffer for the next epoll_wait call */
-	if (n == ep->capa) {
-		xfree(ep->events);
-		ep->capa += step;
-		ep->events = xmalloc(sizeof(struct epoll_event) * ep->capa);
-	}
-
 	return INT2NUM(n);
 }
 
-static int epoll_resume_p(uint64_t expire_at, struct rb_epoll *ep)
+static int epoll_resume_p(uint64_t expire_at, struct ep_per_thread *ept)
 {
 	uint64_t now;
 
-	ep_fd_check(ep);
+	ep_fd_check(ept->ep);
 
 	if (errno != EINTR)
 		return 0;
-	if (ep->timeout < 0)
+	if (ept->timeout < 0)
 		return 1;
 	now = now_ms();
-	ep->timeout = now > expire_at ? 0 : (int)(expire_at - now);
+	ept->timeout = now > expire_at ? 0 : (int)(expire_at - now);
 	return 1;
 }
 
 #if defined(HAVE_RB_THREAD_BLOCKING_REGION)
 static VALUE nogvl_wait(void *args)
 {
-	struct rb_epoll *ep = args;
-	int n = epoll_wait(ep->fd, ep->events, ep->maxevents, ep->timeout);
+	struct ep_per_thread *ept = args;
+	int fd = ept->ep->fd;
+	int n = epoll_wait(fd, ept->events, ept->maxevents, ept->timeout);
 
 	return (VALUE)n;
 }
 
-static VALUE real_epwait(struct rb_epoll *ep)
+static VALUE real_epwait(struct ep_per_thread *ept)
 {
 	int n;
-	uint64_t expire_at = ep->timeout > 0 ? now_ms() + ep->timeout : 0;
+	uint64_t expire_at = ept->timeout > 0 ? now_ms() + ept->timeout : 0;
 
-	do
-		n = (int)rb_sp_fd_region(nogvl_wait, ep, ep->fd);
-	while (n == -1 && epoll_resume_p(expire_at, ep));
+	do {
+		n = (int)rb_sp_fd_region(nogvl_wait, ept, ept->ep->fd);
+	} while (n == -1 && epoll_resume_p(expire_at, ept));
 
-	return epwait_result(ep, n);
+	return epwait_result(ept, n);
 }
 #else /* 1.8 Green thread compatible code */
 #  include "epoll_green.h"
@@ -374,20 +408,16 @@ static VALUE epwait(int argc, VALUE *argv, VALUE self)
 {
 	VALUE timeout, maxevents;
 	struct rb_epoll *ep = ep_get(self);
+	struct ep_per_thread *ept;
 
 	ep_check(ep);
 	rb_need_block();
 	rb_scan_args(argc, argv, "02", &maxevents, &timeout);
-	ep->timeout = NIL_P(timeout) ? -1 : NUM2INT(timeout);
-	ep->maxevents = NIL_P(maxevents) ? ep->capa : NUM2INT(maxevents);
+	ept = ept_get(NIL_P(maxevents) ? 64 : NUM2INT(maxevents));
+	ept->timeout = NIL_P(timeout) ? -1 : NUM2INT(timeout);
+	ept->ep = ep;
 
-	if (ep->maxevents > ep->capa) {
-		xfree(ep->events);
-		ep->capa = ep->maxevents;
-		ep->events = xmalloc(sizeof(struct epoll_event) * ep->capa);
-	}
-
-	return real_epwait(ep);
+	return real_epwait(ept);
 }
 
 /*
@@ -526,8 +556,7 @@ static VALUE init_copy(VALUE copy, VALUE orig)
 	struct rb_epoll *a = ep_get(orig);
 	struct rb_epoll *b = ep_get(copy);
 
-	assert(a->events && b->events && a->events != b->events &&
-	       NIL_P(b->io) && "Ruby broken?");
+	assert(NIL_P(b->io) && "Ruby broken?");
 
 	ep_check(a);
 	assert(NIL_P(b->marks) && "mark array not nil");
@@ -632,9 +661,34 @@ static void atfork_child(void)
 	st_free_table(old);
 }
 
+static void epoll_once(void)
+{
+	int err = pthread_key_create(&epoll_key, free);
+
+	if (err) {
+		errno = err;
+		rb_sys_fail("pthread_key_create");
+	}
+
+	active = st_init_numtable();
+
+	if (pthread_atfork(NULL, NULL, atfork_child) != 0) {
+		rb_gc();
+		if (pthread_atfork(NULL, NULL, atfork_child) != 0)
+			rb_memerror();
+	}
+}
+
 void sleepy_penguin_init_epoll(void)
 {
 	VALUE mSleepyPenguin, cEpoll;
+	pthread_once_t once = PTHREAD_ONCE_INIT;
+	int err = pthread_once(&once, epoll_once);
+
+	if (err) {
+		errno = err;
+		rb_sys_fail("pthread_once(.., epoll_once)");
+	}
 
 	/*
 	 * Document-module: SleepyPenguin
@@ -732,11 +786,4 @@ void sleepy_penguin_init_epoll(void)
 	rb_define_const(cEpoll, "ONESHOT", UINT2NUM(EPOLLONESHOT));
 
 	id_for_fd = rb_intern("for_fd");
-	active = st_init_numtable();
-
-	if (pthread_atfork(NULL, NULL, atfork_child) != 0) {
-		rb_gc();
-		if (pthread_atfork(NULL, NULL, atfork_child) != 0)
-			rb_memerror();
-	}
 }
