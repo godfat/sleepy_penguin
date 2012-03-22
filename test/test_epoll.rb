@@ -460,5 +460,5 @@ class TestEpoll < Test::Unit::TestCase
     assert usr1 > 0, "usr1: #{usr1}"
     ensure
       trap(:USR1, "DEFAULT")
-  end
+  end if ENV["STRESS"].to_i != 0
 end
