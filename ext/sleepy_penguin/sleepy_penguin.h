@@ -31,6 +31,7 @@ VALUE rb_sp_io_region(rb_blocking_function_t *func, void *data);
 #endif
 
 #ifdef HAVE_RB_THREAD_IO_BLOCKING_REGION
+VALUE rb_thread_io_blocking_region(rb_blocking_function_t *, void *, int);
 #  define rb_sp_fd_region(fn,data,fd) \
           rb_thread_io_blocking_region((fn),(data),(fd))
 #else
