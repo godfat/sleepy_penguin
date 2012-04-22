@@ -75,7 +75,7 @@ static struct ep_per_thread *ept_get(int maxevents)
 	size = sizeof(struct ep_per_thread) +
 	       sizeof(struct epoll_event) * maxevents;
 
-	free(ept); /* free(NULL) works on glibc */
+	free(ept); /* free(NULL) is POSIX and works on glibc */
 	ept = malloc(size);
 	if (ept == NULL)
 		rb_memerror();
