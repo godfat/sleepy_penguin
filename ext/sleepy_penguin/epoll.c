@@ -2,6 +2,9 @@
 #include <sys/epoll.h>
 #include <pthread.h>
 #include <time.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/utsname.h>
 #include "missing_epoll.h"
 #ifdef HAVE_RUBY_ST_H
 #  include <ruby/st.h>
@@ -195,6 +198,75 @@ static VALUE init(int argc, VALUE *argv, VALUE self)
 	return self;
 }
 
+static int epoll_ctl_mod_racy;
+static void epoll_ctl_mod_racy_detect(void)
+{
+	struct utsname buf;
+	int rc;
+	unsigned version, patchlevel, sublevel;
+
+	/*
+	 * Online/current processors for this process is not enough,
+	 * we need all processors since events may be triggered
+	 * by interrupt handlers on any CPU in the system
+	 */
+	long nproc = sysconf(_SC_NPROCESSORS_CONF);
+
+	/* Eric Wong's personal machines are ancient and weak: */
+	if (nproc == 1)
+		return;
+
+	if (uname(&buf) != 0)
+		rb_sys_fail("uname");
+
+	/* who knows, maybe there'll be an epoll on other OSes one day */
+	if (strcmp(buf.sysname, "Linux"))
+		return;
+
+	rc = sscanf(buf.release, "%u.%u.%u", &version, &patchlevel, &sublevel);
+	if (rc != 3) {
+		rb_warn("sscanf failed to parse kernel version: %s (rc=%d), "
+			"assuming EPOLL_CTL_MOD is racy on SMP",
+			buf.release, rc);
+		epoll_ctl_mod_racy = 1;
+		return;
+	}
+
+	/*
+	 * TODO: whitelist vendor kernels as fixes are backported
+	 * TODO: It is likely 3.7.2 (or 3.7.3) will have this
+	 *       fix backported.
+	 */
+	if (version <= 2) {
+		epoll_ctl_mod_racy = 1;
+	} else if (version == 3) {
+		if (patchlevel <= 7)
+			epoll_ctl_mod_racy = 1;
+	}
+}
+
+/*
+ * EPOLL_CTL_MOD is racy under Linux <= 3.7.1 on SMP systems,
+ * so we emulate it with EPOLL_CTL_ADD + EPOLL_CTL_DELETE
+ * This is fixed in Linux commit 128dd1759d96ad36c379240f8b9463e8acfd37a1
+ */
+static int
+fake_epoll_ctl_mod(int epfd, int fd, struct epoll_event *event)
+{
+	int rc = epoll_ctl(epfd, EPOLL_CTL_DEL, fd, event);
+	if (rc == 0)
+		rc = epoll_ctl(epfd, EPOLL_CTL_ADD, fd, event);
+	return rc;
+}
+
+static int my_epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
+{
+	if (epoll_ctl_mod_racy && op == EPOLL_CTL_MOD)
+		return fake_epoll_ctl_mod(epfd, fd, event);
+	else
+		return epoll_ctl(epfd, op, fd, event);
+}
+
 static VALUE ctl(VALUE self, VALUE io, VALUE flags, int op)
 {
 	struct epoll_event event;
@@ -206,11 +278,11 @@ static VALUE ctl(VALUE self, VALUE io, VALUE flags, int op)
 	event.events = rb_sp_get_uflags(self, flags);
 	pack_event_data(&event, io);
 
-	rv = epoll_ctl(ep->fd, op, fd, &event);
+	rv = my_epoll_ctl(ep->fd, op, fd, &event);
 	if (rv == -1) {
 		if (errno == ENOMEM) {
 			rb_gc();
-			rv = epoll_ctl(ep->fd, op, fd, &event);
+			rv = my_epoll_ctl(ep->fd, op, fd, &event);
 		}
 		if (rv == -1)
 			rb_sys_fail("epoll_ctl");
@@ -269,7 +341,7 @@ static VALUE set(VALUE self, VALUE io, VALUE flags)
 			return Qnil;
 
 fallback_mod:
-		rv = epoll_ctl(ep->fd, EPOLL_CTL_MOD, fd, &event);
+		rv = my_epoll_ctl(ep->fd, EPOLL_CTL_MOD, fd, &event);
 		if (rv == -1) {
 			if (errno != ENOENT)
 				rb_sys_fail("epoll_ctl - mod");
@@ -786,4 +858,16 @@ void sleepy_penguin_init_epoll(void)
 	rb_define_const(cEpoll, "ONESHOT", UINT2NUM(EPOLLONESHOT));
 
 	id_for_fd = rb_intern("for_fd");
+
+	epoll_ctl_mod_racy_detect();
+
+
+	/*
+	 * true if EPOLL_CTL_MOD is racy on your version of Linux
+	 * (anything before 3.8) under SMP.
+	 * Please report patched vendor kernels to
+	 * mailto:sleepy.penguin@librelist.org
+	 */
+	rb_define_const(cEpoll, "EPOLL_CTL_MOD_RACY",
+                        epoll_ctl_mod_racy ? Qtrue : Qfalse);
 }

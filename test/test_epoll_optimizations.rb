@@ -31,17 +31,34 @@ class TestEpollOptimizations < Test::Unit::TestCase
     assert_equal 1, lines.grep(/^epoll_ctl/).size
     assert_match(/EPOLL_CTL_ADD/, lines.grep(/^epoll_ctl/)[0])
 
-    io, err = Strace.me { @ep.set(@wr, Epoll::OUT | Epoll::ONESHOT) }
-    assert_nil err
-    lines = io.readlines; io.close
-    assert_equal 1, lines.grep(/^epoll_ctl/).size
-    assert_match(/EPOLL_CTL_MOD/, lines.grep(/^epoll_ctl/)[0])
+    if Epoll::EPOLL_CTL_MOD_RACY
+      io, err = Strace.me { @ep.set(@wr, Epoll::OUT | Epoll::ONESHOT) }
+      assert_nil err
+      lines = io.readlines; io.close
+      assert_equal 2, lines.grep(/^epoll_ctl/).size
+      assert_match(/EPOLL_CTL_DEL/, lines.grep(/^epoll_ctl/)[0])
+      assert_match(/EPOLL_CTL_ADD/, lines.grep(/^epoll_ctl/)[1])
 
-    io, err = Strace.me { @ep.set(@wr, Epoll::OUT) }
-    assert_nil err
-    lines = io.readlines; io.close
-    assert_equal 1, lines.grep(/^epoll_ctl/).size
-    assert_match(/EPOLL_CTL_MOD/, lines.grep(/^epoll_ctl/)[0])
+      io, err = Strace.me { @ep.set(@wr, Epoll::OUT) }
+      assert_nil err
+      lines = io.readlines; io.close
+      assert_equal 2, lines.grep(/^epoll_ctl/).size
+      assert_match(/EPOLL_CTL_DEL/, lines.grep(/^epoll_ctl/)[0])
+      assert_match(/EPOLL_CTL_ADD/, lines.grep(/^epoll_ctl/)[1])
+    else
+      io, err = Strace.me { @ep.set(@wr, Epoll::OUT | Epoll::ONESHOT) }
+      assert_nil err
+      lines = io.readlines; io.close
+      assert_equal 1, lines.grep(/^epoll_ctl/).size
+      assert_match(/EPOLL_CTL_MOD/, lines.grep(/^epoll_ctl/)[0])
+
+      io, err = Strace.me { @ep.set(@wr, Epoll::OUT) }
+      assert_nil err
+      lines = io.readlines; io.close
+      assert_equal 1, lines.grep(/^epoll_ctl/).size
+      assert_match(/EPOLL_CTL_MOD/, lines.grep(/^epoll_ctl/)[0])
+    end
+
     @wr.close
     @rd.close
 
