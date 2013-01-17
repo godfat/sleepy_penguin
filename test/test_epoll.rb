@@ -18,10 +18,7 @@ class TestEpoll < Test::Unit::TestCase
 
   def test_constants
     Epoll.constants.each do |const|
-      case const.to_sym
-      when :IO, :EPOLL_CTL_MOD_RACY
-        next
-      end
+      next if const.to_sym == :IO
       nr = Epoll.const_get(const)
       assert nr <= 0xffffffff, "#{const}=#{nr}"
     end
