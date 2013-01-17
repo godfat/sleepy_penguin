@@ -764,6 +764,15 @@ void sleepy_penguin_init_epoll(void)
 	rb_define_const(cEpoll, "RDHUP", UINT2NUM(EPOLLRDHUP));
 #endif
 
+#ifdef EPOLLWAKEUP
+	/*
+	 * This prevents system suspend while event is ready.
+	 * This requires the caller to have the CAP_BLOCK_SUSPEND capability
+	 * Available since Linux 3.5
+	 */
+	rb_define_const(cEpoll, "WAKEUP", UINT2NUM(EPOLLWAKEUP));
+#endif
+
 	/* watch for urgent read(2) data */
 	rb_define_const(cEpoll, "PRI", UINT2NUM(EPOLLPRI));
 
