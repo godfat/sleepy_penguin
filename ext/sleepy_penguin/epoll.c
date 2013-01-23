@@ -682,7 +682,7 @@ static void epoll_once(void)
 void sleepy_penguin_init_epoll(void)
 {
 	VALUE mSleepyPenguin, cEpoll;
-	pthread_once_t once = PTHREAD_ONCE_INIT;
+	static pthread_once_t once = PTHREAD_ONCE_INIT;
 	int err = pthread_once(&once, epoll_once);
 
 	if (err) {
