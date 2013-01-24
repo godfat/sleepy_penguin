@@ -400,8 +400,10 @@ static VALUE real_epwait(struct ep_per_thread *ept)
  *
  * Calls epoll_wait(2) and yields Integer +flags+ and IO objects watched
  * for.  +maxevents+ is the maximum number of events to process at once,
- * lower numbers may prevent starvation when used by dup-ed Epoll objects
- * in multiple threads. +timeout+ is specified in milliseconds, +nil+
+ * lower numbers may prevent starvation when used by Epoll#wait in multiple
+ * threads.  Larger +maxevents+ reduces syscall overhead for
+ * single-threaded applications. +maxevents+ defaults to 64 events.
+ * +timeout+ is specified in milliseconds, +nil+
  * (the default) meaning it will block and wait indefinitely.
  */
 static VALUE epwait(int argc, VALUE *argv, VALUE self)
@@ -547,9 +549,8 @@ static int cloexec_dup(struct rb_epoll *ep)
  *	epoll.dup	-> another Epoll object
  *
  * Duplicates an Epoll object and userspace buffers related to this library.
- * This allows the same epoll object in the Linux kernel to be safely used
- * across multiple native threads as long as there is one SleepyPenguin::Epoll
- * object per-thread.
+ * Since SleepyPenguin 3.1.0, this is no longer needed for multi-threaded
+ * Epoll#wait.
  */
 static VALUE init_copy(VALUE copy, VALUE orig)
 {
