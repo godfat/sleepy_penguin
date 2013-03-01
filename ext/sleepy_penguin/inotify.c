@@ -196,13 +196,10 @@ static VALUE take(int argc, VALUE *argv, VALUE self)
 			args.ptr = (struct inotify_event *)RSTRING_PTR(buf);
 			args.len = newlen;
 		} else if (r < 0) {
-			if (errno == EAGAIN && RTEST(nonblock)) {
+			if (errno == EAGAIN && RTEST(nonblock))
 				return Qnil;
-			} else {
-				args.fd = rb_sp_fileno(self);
-				if (!rb_io_wait_readable(args.fd))
-					rb_sys_fail("read(inotify)");
-			}
+			if (!rb_sp_wait(rb_io_wait_readable, self, &args.fd))
+				rb_sys_fail("read(inotify)");
 		} else {
 			/* buffer in userspace to minimize read() calls */
 			end = (struct inotify_event *)((char *)args.ptr + r);

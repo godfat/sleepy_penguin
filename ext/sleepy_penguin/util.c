@@ -141,3 +141,14 @@ VALUE rb_sp_io_region(rb_blocking_function_t *func, void *data)
 	return rv;
 }
 #endif
+
+int rb_sp_wait(rb_sp_waitfn waiter, VALUE obj, int *fd)
+{
+	/*
+	 * we need to check the fileno before and after waiting, a close()
+	 * could've happened at any time (especially when outside of GVL).
+	 */
+	int rc = waiter(rb_sp_fileno(obj));
+	*fd = rb_sp_fileno(obj);
+	return rc;
+}

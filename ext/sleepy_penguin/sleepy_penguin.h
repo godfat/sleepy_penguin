@@ -40,4 +40,8 @@ VALUE rb_thread_io_blocking_region(rb_blocking_function_t *, void *, int);
 
 #define NODOC_CONST(klass,name,value) \
   rb_define_const((klass),(name),(value))
+
+
+typedef int rb_sp_waitfn(int fd);
+int rb_sp_wait(rb_sp_waitfn waiter, VALUE obj, int *fd);
 #endif /* SLEEPY_PENGUIN_H */

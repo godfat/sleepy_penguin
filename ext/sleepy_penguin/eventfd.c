@@ -91,7 +91,7 @@ retry:
 	if (w == -1) {
 		if (errno == EAGAIN && RTEST(nonblock))
 			return Qfalse;
-		if (rb_io_wait_writable(x.fd))
+		if (rb_sp_wait(rb_io_wait_writable, self, &x.fd))
 			goto retry;
 		rb_sys_fail("write(eventfd)");
 	}
@@ -127,7 +127,7 @@ retry:
 	if (w == -1) {
 		if (errno == EAGAIN && RTEST(nonblock))
 			return Qnil;
-		if (rb_io_wait_readable(x.fd = rb_sp_fileno(self)))
+		if (rb_sp_wait(rb_io_wait_readable, self, &x.fd))
 			goto retry;
 		rb_sys_fail("read(eventfd)");
 	}

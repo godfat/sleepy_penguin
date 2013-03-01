@@ -198,7 +198,7 @@ retry:
 	if (r == -1) {
 		if (errno == EAGAIN && RTEST(nonblock))
 			return Qnil;
-		if (rb_io_wait_readable(fd = rb_sp_fileno(self)))
+		if (rb_sp_wait(rb_io_wait_readable, self, &fd))
 			goto retry;
 		rb_sys_fail("read(signalfd)");
 	}
