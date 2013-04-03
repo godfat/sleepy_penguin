@@ -123,6 +123,13 @@ void rb_sp_set_nonblock(int fd)
 		rb_sys_fail("fcntl(F_GETFL)");
 	if ((flags & O_NONBLOCK) == O_NONBLOCK)
 		return;
+	/*
+	 * Note: while this is Linux-only and we could safely rely on
+	 * ioctl(FIONBIO), needing F_SETFL is an uncommon path, and
+	 * F_GETFL is lockless.  ioctl(FIONBIO) always acquires a spin
+	 * lock, so it's more expensive even if we do not need to change
+	 * anything.
+	 */
 	flags = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 	if (flags == -1)
 		rb_sys_fail("fcntl(F_SETFL)");
