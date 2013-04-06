@@ -473,22 +473,26 @@ class TestEpoll < Test::Unit::TestCase
     nr = 10
     nr.times do
       r, w = IO.pipe
-      pipes[r] = w
+      lock.synchronize { pipes[r] = w }
       @ep.add(r, Epoll::IN | Epoll::ET | Epoll::ONESHOT)
 
       t = Thread.new do
         sleep 2
         events = 0
         @ep.wait(maxevents) do |_,obj|
-          assert pipes.include?(obj), "#{obj.inspect} is unknown"
-          lock.synchronize { ok << obj }
+          lock.synchronize do
+            assert pipes.include?(obj), "#{obj.inspect} is unknown"
+            ok << obj
+          end
           events += 1
         end
         events
       end
       thr << t
     end
-    pipes.each_value { |w| w.syswrite '.' }
+    lock.synchronize do
+      pipes.each_value { |w| w.syswrite '.' }
+    end
     thr.each do |t|
       begin
         t.run
