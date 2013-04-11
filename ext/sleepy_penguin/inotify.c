@@ -89,14 +89,9 @@ static VALUE add_watch(VALUE self, VALUE path, VALUE vmask)
 	uint32_t mask = rb_sp_get_uflags(self, vmask);
 	int rc = inotify_add_watch(fd, pathname, mask);
 
-	if (rc == -1) {
-		if (errno == ENOMEM) {
-			rb_gc();
-			rc = inotify_add_watch(fd, pathname, mask);
-		}
-		if (rc == -1)
-			rb_sys_fail("inotify_add_watch");
-	}
+	if (rc == -1)
+		rb_sys_fail("inotify_add_watch");
+
 	return UINT2NUM((uint32_t)rc);
 }
 

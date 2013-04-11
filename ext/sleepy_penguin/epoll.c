@@ -139,14 +139,8 @@ static VALUE epctl(VALUE self, VALUE _op, VALUE io, VALUE events)
 	pack_event_data(&event, io);
 
 	rv = epoll_ctl(epfd, op, fd, &event);
-	if (rv < 0) {
-		if (errno == ENOMEM) {
-			rb_gc();
-			rv = epoll_ctl(epfd, op, fd, &event);
-		}
-		if (rv < 0)
-			rb_sys_fail("epoll_ctl");
-	}
+	if (rv < 0)
+		rb_sys_fail("epoll_ctl");
 
 	return Qnil;
 }
