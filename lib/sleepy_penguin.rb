@@ -5,3 +5,4 @@ module SleepyPenguin
   SLEEPY_PENGUIN_VERSION = '3.1.0'
 end
 require 'sleepy_penguin_ext'
+require 'sleepy_penguin/epoll'

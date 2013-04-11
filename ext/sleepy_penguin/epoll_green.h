@@ -26,9 +26,9 @@ static int safe_epoll_wait(struct ep_per_thread *ept)
 
 	do {
 		TRAP_BEG;
-		n = epoll_wait(ept->ep->fd, ept->events, ept->maxevents, 0);
+		n = epoll_wait(ept->fd, ept->events, ept->maxevents, 0);
 		TRAP_END;
-	} while (n == -1 && errno == EINTR && ep_fd_check(ept->ep));
+	} while (n == -1 && ep_fd_check(ept) && errno == EINTR);
 
 	return n;
 }
@@ -38,7 +38,7 @@ static int epwait_forever(struct ep_per_thread *ept)
 	int n;
 
 	do {
-		(void)rb_io_wait_readable(ept->ep->fd);
+		(void)rb_io_wait_readable(ept->fd);
 		n = safe_epoll_wait(ept);
 	} while (n == 0);
 
@@ -55,7 +55,7 @@ static int epwait_timed(struct ep_per_thread *ept)
 	for (;;) {
 		struct timeval t0, now, diff;
 		int n;
-		int fd = ept->ep->fd;
+		int fd = ept->fd;
 		fd_set rfds;
 
 		FD_ZERO(&rfds);

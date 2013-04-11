@@ -28,7 +28,7 @@ class TestEpollOptimizations < Test::Unit::TestCase
     end
     assert_nil err
     lines = io.readlines; io.close
-    assert_equal 1, lines.grep(/^epoll_ctl/).size
+    assert_equal 1, lines.grep(/^epoll_ctl/).size, lines.inspect
     assert_match(/EPOLL_CTL_ADD/, lines.grep(/^epoll_ctl/)[0])
 
     io, err = Strace.me { @ep.set(@wr, Epoll::OUT | Epoll::ONESHOT) }

@@ -48,6 +48,19 @@ class TestEpoll < Test::Unit::TestCase
     assert_equal [[Epoll::IN, @rd]], tmp
   end
 
+  def test_dup_and_fork
+    epdup = @ep.dup
+    @ep.close
+    assert ! epdup.closed?
+    pid = fork do
+      exit(!epdup.closed? && @ep.closed?)
+    end
+    _, status = Process.waitpid2(pid)
+    assert status.success?, status.inspect
+  ensure
+    epdup.close
+  end
+
   def test_after_fork_usability
     fork { @ep.add(@rd, Epoll::IN); exit!(0) }
     fork { @ep.set(@rd, Epoll::IN); exit!(0) }
@@ -399,7 +412,7 @@ class TestEpoll < Test::Unit::TestCase
   def test_include?
     assert ! @ep.include?(@rd)
     @ep.add @rd, Epoll::IN
-    assert @ep.include?(@rd)
+    assert @ep.include?(@rd), @ep.instance_variable_get(:@marks).inspect
     assert @ep.include?(@rd.fileno)
     assert ! @ep.include?(@wr)
     assert ! @ep.include?(@wr.fileno)
