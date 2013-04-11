@@ -1,14 +1,15 @@
 #include "sleepy_penguin.h"
 #include <sys/epoll.h>
-#include <pthread.h>
+#include <unistd.h>
 #include <time.h>
 #include "missing_epoll.h"
 #include "missing_rb_thread_fd_close.h"
 #include "missing_rb_update_max_fd.h"
+#define L1_CACHE_LINE_MAX 128 /* largest I've seen (Pentium 4) */
 
-static pthread_key_t epoll_key;
 static ID id_for_fd;
 static VALUE cEpoll;
+static size_t l1_cache_line_size;
 
 static uint64_t now_ms(void)
 {
@@ -61,9 +62,10 @@ static int ep_fd_check(struct ep_per_thread *ept)
 
 static struct ep_per_thread *ept_get(VALUE self, int maxevents)
 {
-	struct ep_per_thread *ept = pthread_getspecific(epoll_key);
+	static __thread struct ep_per_thread *ept;
 	size_t size;
 	int err;
+	void *ptr;
 
 	if (ept && ept->capa >= maxevents)
 		goto out;
@@ -72,14 +74,12 @@ static struct ep_per_thread *ept_get(VALUE self, int maxevents)
 	       sizeof(struct epoll_event) * maxevents;
 
 	free(ept); /* free(NULL) is POSIX and works on glibc */
-	ept = malloc(size);
-	if (ept == NULL)
-		rb_memerror();
-	err = pthread_setspecific(epoll_key, ept);
-	if (err != 0) {
+	err = posix_memalign(&ptr, l1_cache_line_size, size);
+	if (err) {
 		errno = err;
-		rb_sys_fail("pthread_setspecific");
+		rb_memerror();
 	}
+	ept = ptr;
 	ept->capa = maxevents;
 out:
 	ept->maxevents = maxevents;
@@ -234,32 +234,28 @@ static VALUE epwait(int argc, VALUE *argv, VALUE self)
 	return real_epwait(ept);
 }
 
-static void epoll_once(void)
-{
-	int err = pthread_key_create(&epoll_key, free);
-
-	if (err) {
-		errno = err;
-		rb_sys_fail("pthread_key_create");
-	}
-}
-
 /* :nodoc: */
 static VALUE event_flags(VALUE self, VALUE flags)
 {
 	return UINT2NUM(rb_sp_get_uflags(self, flags));
 }
 
+static size_t l1_cache_line_size_detect(void)
+{
+#ifdef _SC_LEVEL1_DCACHE_LINESIZE
+	long tmp = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
+
+	if (tmp > 0 && tmp <= L1_CACHE_LINE_MAX)
+		return (size_t)tmp;
+#endif /* _SC_LEVEL1_DCACHE_LINESIZE */
+	return L1_CACHE_LINE_MAX;
+}
+
 void sleepy_penguin_init_epoll(void)
 {
 	VALUE mSleepyPenguin, cEpoll_IO;
-	static pthread_once_t once = PTHREAD_ONCE_INIT;
-	int err = pthread_once(&once, epoll_once);
 
-	if (err) {
-		errno = err;
-		rb_sys_fail("pthread_once(.., epoll_once)");
-	}
+	l1_cache_line_size = l1_cache_line_size_detect();
 
 	/*
 	 * Document-module: SleepyPenguin
