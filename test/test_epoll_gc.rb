@@ -42,6 +42,8 @@ class TestEpollGC < Test::Unit::TestCase
         2048.times { IO.pipe; File.open(__FILE__)}
         done = true
       end
+    rescue Errno::EMFILE, Errno::ENFILE
+      Thread.new { GC.start }.join
     end while true
   end
 end if ENV["GC_STRESS"].to_i != 0
