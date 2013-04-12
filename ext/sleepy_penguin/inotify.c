@@ -215,7 +215,7 @@ static VALUE take(int argc, VALUE *argv, VALUE self)
 	else
 		blocking_io_prepare(args.fd);
 	do {
-		r = rb_sp_fd_region(inread, &args, args.fd);
+		r = (ssize_t)rb_sp_fd_region(inread, &args, args.fd);
 		if (r == 0 /* Linux < 2.6.21 */
 		    ||
 		    (r < 0 && errno == EINVAL) /* Linux >= 2.6.21 */

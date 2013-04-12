@@ -135,20 +135,6 @@ void rb_sp_set_nonblock(int fd)
 		rb_sys_fail("fcntl(F_SETFL)");
 }
 
-#ifndef HAVE_RB_THREAD_BLOCKING_REGION
-#include <rubysig.h>
-VALUE rb_sp_io_region(rb_blocking_function_t *func, void *data)
-{
-	VALUE rv;
-
-	TRAP_BEG;
-	rv = func(data);
-	TRAP_END;
-
-	return rv;
-}
-#endif
-
 int rb_sp_wait(rb_sp_waitfn waiter, VALUE obj, int *fd)
 {
 	/*

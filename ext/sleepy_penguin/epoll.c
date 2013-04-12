@@ -176,7 +176,6 @@ static int epoll_resume_p(uint64_t expire_at, struct ep_per_thread *ept)
 	return 1;
 }
 
-#if defined(HAVE_RB_THREAD_BLOCKING_REGION)
 static VALUE nogvl_wait(void *args)
 {
 	struct ep_per_thread *ept = args;
@@ -187,18 +186,15 @@ static VALUE nogvl_wait(void *args)
 
 static VALUE real_epwait(struct ep_per_thread *ept)
 {
-	int n;
+	long n;
 	uint64_t expire_at = ept->timeout > 0 ? now_ms() + ept->timeout : 0;
 
 	do {
-		n = (int)rb_sp_fd_region(nogvl_wait, ept, ept->fd);
+		n = (long)rb_sp_fd_region(nogvl_wait, ept, ept->fd);
 	} while (n == -1 && epoll_resume_p(expire_at, ept));
 
-	return epwait_result(ept, n);
+	return epwait_result(ept, (int)n);
 }
-#else /* 1.8 Green thread compatible code */
-#  include "epoll_green.h"
-#endif /* 1.8 Green thread compatibility code */
 
 /*
  * call-seq:
@@ -342,4 +338,7 @@ void sleepy_penguin_init_epoll(void)
 	rb_define_const(cEpoll, "ONESHOT", UINT2NUM(EPOLLONESHOT));
 
 	id_for_fd = rb_intern("for_fd");
+
+	if (RB_SP_GREEN_THREAD)
+		rb_require("sleepy_penguin/epoll/io");
 }
