@@ -3,6 +3,7 @@
 *.log
 *.so
 *.rbc
+/.rbx
 /.config
 /InstalledFiles
 /doc
