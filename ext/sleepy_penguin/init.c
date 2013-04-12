@@ -1,3 +1,9 @@
+#define _GNU_SOURCE
+#include <unistd.h>
+#include <sys/types.h>
+#define L1_CACHE_LINE_MAX 128 /* largest I've seen (Pentium 4) */
+size_t rb_sp_l1_cache_line_size;
+
 void sleepy_penguin_init_epoll(void);
 
 #ifdef HAVE_SYS_TIMERFD_H
@@ -24,8 +30,21 @@ void sleepy_penguin_init_signalfd(void);
 #  define sleepy_penguin_init_signalfd() for(;0;)
 #endif
 
+static size_t l1_cache_line_size_detect(void)
+{
+#ifdef _SC_LEVEL1_DCACHE_LINESIZE
+	long tmp = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
+
+	if (tmp > 0 && tmp <= L1_CACHE_LINE_MAX)
+		return (size_t)tmp;
+#endif /* _SC_LEVEL1_DCACHE_LINESIZE */
+	return L1_CACHE_LINE_MAX;
+}
+
 void Init_sleepy_penguin_ext(void)
 {
+	rb_sp_l1_cache_line_size = l1_cache_line_size_detect();
+
 	sleepy_penguin_init_epoll();
 	sleepy_penguin_init_timerfd();
 	sleepy_penguin_init_eventfd();

@@ -5,11 +5,9 @@
 #include "missing_epoll.h"
 #include "missing_rb_thread_fd_close.h"
 #include "missing_rb_update_max_fd.h"
-#define L1_CACHE_LINE_MAX 128 /* largest I've seen (Pentium 4) */
 
 static ID id_for_fd;
 static VALUE cEpoll;
-static size_t l1_cache_line_size;
 
 static uint64_t now_ms(void)
 {
@@ -74,7 +72,7 @@ static struct ep_per_thread *ept_get(VALUE self, int maxevents)
 	       sizeof(struct epoll_event) * maxevents;
 
 	free(ept); /* free(NULL) is POSIX and works on glibc */
-	err = posix_memalign(&ptr, l1_cache_line_size, size);
+	err = posix_memalign(&ptr, rb_sp_l1_cache_line_size, size);
 	if (err) {
 		errno = err;
 		rb_memerror();
@@ -234,22 +232,9 @@ static VALUE event_flags(VALUE self, VALUE flags)
 	return UINT2NUM(rb_sp_get_uflags(self, flags));
 }
 
-static size_t l1_cache_line_size_detect(void)
-{
-#ifdef _SC_LEVEL1_DCACHE_LINESIZE
-	long tmp = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
-
-	if (tmp > 0 && tmp <= L1_CACHE_LINE_MAX)
-		return (size_t)tmp;
-#endif /* _SC_LEVEL1_DCACHE_LINESIZE */
-	return L1_CACHE_LINE_MAX;
-}
-
 void sleepy_penguin_init_epoll(void)
 {
 	VALUE mSleepyPenguin, cEpoll_IO;
-
-	l1_cache_line_size = l1_cache_line_size_detect();
 
 	/*
 	 * Document-module: SleepyPenguin

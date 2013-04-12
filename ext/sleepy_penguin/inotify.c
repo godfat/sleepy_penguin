@@ -4,7 +4,12 @@
 #include <sys/ioctl.h>
 #include "missing_inotify.h"
 
-static ID id_inotify_buf, id_inotify_tmp, id_mask;
+struct inbuf {
+	size_t capa;
+	void *ptr;
+};
+
+static ID id_inotify_tmp, id_mask;
 static VALUE cEvent, checks;
 
 /*
@@ -36,7 +41,6 @@ static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 
 	rv = INT2FIX(fd);
 	rv = rb_call_super(1, &rv);
-	rb_ivar_set(rv, id_inotify_buf, rb_str_new(0, 128));
 	rb_ivar_set(rv, id_inotify_tmp, rb_ary_new());
 
 	return rv;
@@ -133,15 +137,50 @@ static VALUE event_new(struct inotify_event *e)
 
 struct inread_args {
 	int fd;
-	struct inotify_event *ptr;
-	long len;
+	struct inbuf *inbuf;
 };
 
 static VALUE inread(void *ptr)
 {
 	struct inread_args *args = ptr;
 
-	return (VALUE)read(args->fd, args->ptr, args->len);
+	return (VALUE)read(args->fd, args->inbuf->ptr, args->inbuf->capa);
+}
+
+static void inbuf_grow(struct inbuf *inbuf, size_t size)
+{
+	int err;
+
+	if (inbuf->capa >= size)
+		return;
+	free(inbuf->ptr);
+	err = posix_memalign(&inbuf->ptr, rb_sp_l1_cache_line_size, size);
+	if (err) {
+		errno = err;
+		rb_memerror();
+	}
+	inbuf->capa = size;
+}
+
+static void resize_internal_buffer(struct inread_args *args)
+{
+	int newlen;
+
+	if (args->inbuf->capa > 0x10000)
+		rb_raise(rb_eRuntimeError, "path too long");
+
+	if (ioctl(args->fd, FIONREAD, &newlen) != 0)
+		rb_sys_fail("ioctl(inotify,FIONREAD)");
+
+	if (newlen > 0)
+		inbuf_grow(args->inbuf, (size_t)newlen);
+
+	if (newlen == 0) /* race: some other thread grabbed the data */
+		return;
+
+	rb_raise(rb_eRuntimeError,
+		"ioctl(inotify,FIONREAD) returned negative length: %d",
+		newlen);
 }
 
 /*
@@ -153,8 +192,9 @@ static VALUE inread(void *ptr)
  */
 static VALUE take(int argc, VALUE *argv, VALUE self)
 {
+	static __thread struct inbuf inbuf;
+
 	struct inread_args args;
-	VALUE buf;
 	VALUE tmp = rb_ivar_get(self, id_inotify_tmp);
 	struct inotify_event *e, *end;
 	ssize_t r;
@@ -166,10 +206,9 @@ static VALUE take(int argc, VALUE *argv, VALUE self)
 
 	rb_scan_args(argc, argv, "01", &nonblock);
 
+	inbuf_grow(&inbuf, 128);
 	args.fd = rb_sp_fileno(self);
-	buf = rb_ivar_get(self, id_inotify_buf);
-	args.len = RSTRING_LEN(buf);
-	args.ptr = (struct inotify_event *)RSTRING_PTR(buf);
+	args.inbuf = &inbuf;
 
 	if (RTEST(nonblock))
 		rb_sp_set_nonblock(args.fd);
@@ -181,15 +220,7 @@ static VALUE take(int argc, VALUE *argv, VALUE self)
 		    ||
 		    (r < 0 && errno == EINVAL) /* Linux >= 2.6.21 */
 		   ) {
-			/* resize internal buffer */
-			int newlen;
-			if (args.len > 0x10000)
-				rb_raise(rb_eRuntimeError, "path too long");
-			if (ioctl(args.fd, FIONREAD, &newlen) != 0)
-				rb_sys_fail("ioctl(inotify,FIONREAD)");
-			rb_str_resize(buf, newlen);
-			args.ptr = (struct inotify_event *)RSTRING_PTR(buf);
-			args.len = newlen;
+			resize_internal_buffer(&args);
 		} else if (r < 0) {
 			if (errno == EAGAIN && RTEST(nonblock))
 				return Qnil;
@@ -197,8 +228,9 @@ static VALUE take(int argc, VALUE *argv, VALUE self)
 				rb_sys_fail("read(inotify)");
 		} else {
 			/* buffer in userspace to minimize read() calls */
-			end = (struct inotify_event *)((char *)args.ptr + r);
-			for (e = args.ptr; e < end; ) {
+			end = (struct inotify_event *)
+					((char *)args.inbuf->ptr + r);
+			for (e = args.inbuf->ptr; e < end; ) {
 				VALUE event = event_new(e);
 				if (NIL_P(rv))
 					rv = event;
@@ -237,22 +269,6 @@ static VALUE events(VALUE self)
 	}
 
 	return rv;
-}
-
-/*
- * call-seq:
- *	inotify.dup	-> another Inotify object
- *
- * Duplicates an Inotify object, allowing it to be used in a blocking
- * fashion in another thread.  Ensures duplicated Inotify objects do
- * not share read buffers, but do share the userspace Array buffer.
- */
-static VALUE init_copy(VALUE dest, VALUE orig)
-{
-	rb_call_super(1, &orig); /* copy all other ivars as-is */
-	rb_ivar_set(dest, id_inotify_buf, rb_str_new(0, 128));
-
-	return dest;
 }
 
 /*
@@ -300,7 +316,6 @@ void sleepy_penguin_init_inotify(void)
 	cInotify = rb_define_class_under(mSleepyPenguin, "Inotify", rb_cIO);
 	rb_define_method(cInotify, "add_watch", add_watch, 2);
 	rb_define_method(cInotify, "rm_watch", rm_watch, 1);
-	rb_define_method(cInotify, "initialize_copy", init_copy, 1);
 	rb_define_method(cInotify, "take", take, -1);
 	rb_define_method(cInotify, "each", each, 0);
 
@@ -330,7 +345,6 @@ void sleepy_penguin_init_inotify(void)
 	cEvent = rb_define_class_under(cInotify, "Event", cEvent);
 	rb_define_method(cEvent, "events", events, 0);
 	rb_define_singleton_method(cInotify, "new", s_new, -1);
-	id_inotify_buf = rb_intern("@inotify_buf");
 	id_inotify_tmp = rb_intern("@inotify_tmp");
 	id_mask = rb_intern("mask");
 	checks = rb_ary_new();

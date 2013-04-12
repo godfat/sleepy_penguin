@@ -12,6 +12,7 @@
 #include <assert.h>
 #include <unistd.h>
 
+extern size_t rb_sp_l1_cache_line_size;
 unsigned rb_sp_get_uflags(VALUE klass, VALUE flags);
 int rb_sp_get_flags(VALUE klass, VALUE flags);
 int rb_sp_io_closed(VALUE io);
