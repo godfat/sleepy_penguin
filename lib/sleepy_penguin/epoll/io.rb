@@ -1,5 +1,5 @@
-# :stopdoc:
 class SleepyPenguin::Epoll::IO
+  # :stopdoc:
   alias __epoll_wait epoll_wait
   undef_method :epoll_wait
   def epoll_wait(maxevents = 64, timeout = nil)
@@ -24,4 +24,5 @@ class SleepyPenguin::Epoll::IO
       retry
     end
   end
+  # :startdoc:
 end

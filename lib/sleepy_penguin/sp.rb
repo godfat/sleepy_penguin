@@ -1,4 +1,4 @@
 # :stopdoc:
 require "sleepy_penguin"
-SP = SleepyPenguin
+Object.const_set(:SP, SleepyPenguin)
 # :startdoc:
