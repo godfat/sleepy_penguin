@@ -1,6 +1,5 @@
 require 'mkmf'
 have_header('sys/epoll.h') or abort 'sys/epoll.h not found'
-have_header("pthread.h") or abort 'pthread.h not found'
 have_header('sys/eventfd.h')
 
 # it's impossible to use signalfd reliably with Ruby since Ruby currently
@@ -16,5 +15,4 @@ have_func('rb_thread_blocking_region')
 have_func('rb_thread_io_blocking_region')
 have_func('rb_thread_fd_close')
 have_func('rb_update_max_fd')
-have_library('pthread')
 create_makefile('sleepy_penguin_ext')
