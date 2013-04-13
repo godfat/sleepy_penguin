@@ -14,7 +14,7 @@
 
 extern size_t rb_sp_l1_cache_line_size;
 unsigned rb_sp_get_uflags(VALUE klass, VALUE flags);
-int rb_sp_get_flags(VALUE klass, VALUE flags);
+int rb_sp_get_flags(VALUE klass, VALUE flags, int default_flags);
 int rb_sp_io_closed(VALUE io);
 int rb_sp_fileno(VALUE io);
 void rb_sp_set_nonblock(int fd);
@@ -69,6 +69,11 @@ static inline VALUE fake_blocking_region(VALUE (*fn)(void *), void *data)
 #define NODOC_CONST(klass,name,value) \
   rb_define_const((klass),(name),(value))
 
+#ifdef HAVE_RB_FD_FIX_CLOEXEC
+#  define RB_SP_CLOEXEC(flag) (flag)
+#else
+#  define RB_SP_CLOEXEC(flag) (0)
+#endif
 
 typedef int rb_sp_waitfn(int fd);
 int rb_sp_wait(rb_sp_waitfn waiter, VALUE obj, int *fd);

@@ -358,7 +358,11 @@ class TestEpoll < Test::Unit::TestCase
   def test_new
     @ep.close
     io = Epoll.new.to_io
-    assert_equal 0, io.fcntl(Fcntl::F_GETFD)
+    if RUBY_VERSION.to_f >= 2.0
+      assert_equal 1, io.fcntl(Fcntl::F_GETFD)
+    else
+      assert_equal 0, io.fcntl(Fcntl::F_GETFD)
+    end
   end
 
   def test_delete

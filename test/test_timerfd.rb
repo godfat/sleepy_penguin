@@ -15,6 +15,11 @@ class TestTimerFD < Test::Unit::TestCase
   def test_create
     tfd = TimerFD.new
     assert_kind_of(IO, tfd)
+    if RUBY_VERSION.to_f >= 2.0
+      assert_equal 1, tfd.fcntl(Fcntl::F_GETFD)
+    else
+      assert_equal 0, tfd.fcntl(Fcntl::F_GETFD)
+    end
   end
 
   def test_create_nonblock

@@ -27,7 +27,7 @@ static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 	int fd;
 
 	rb_scan_args(argc, argv, "01", &_flags);
-	flags = rb_sp_get_flags(klass, _flags);
+	flags = rb_sp_get_flags(klass, _flags, RB_SP_CLOEXEC(IN_CLOEXEC));
 
 	fd = inotify_init1(flags);
 	if (fd == -1) {

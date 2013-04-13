@@ -20,6 +20,11 @@ class TestEventFD < Test::Unit::TestCase
   def test_new
     efd = EventFD.new 0
     assert_kind_of(IO, efd)
+    if RUBY_VERSION.to_f >= 2.0
+      assert_equal 1, efd.fcntl(Fcntl::F_GETFD)
+    else
+      assert_equal 0, efd.fcntl(Fcntl::F_GETFD)
+    end
   end
 
   def test_new_nonblock

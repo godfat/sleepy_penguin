@@ -5,10 +5,10 @@ static VALUE klass_for(VALUE klass)
 	return (TYPE(klass) == T_CLASS) ? klass : CLASS_OF(klass);
 }
 
-int rb_sp_get_flags(VALUE klass, VALUE flags)
+int rb_sp_get_flags(VALUE klass, VALUE flags, int default_flags)
 {
 	switch (TYPE(flags)) {
-	case T_NIL: return 0;
+	case T_NIL: return default_flags;
 	case T_FIXNUM: return FIX2INT(flags);
 	case T_BIGNUM: return NUM2INT(flags);
 	case T_SYMBOL:

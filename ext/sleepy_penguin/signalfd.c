@@ -92,7 +92,8 @@ static VALUE update_bang(int argc, VALUE *argv, VALUE self)
 	int rc;
 
 	rb_scan_args(argc, argv, "02", &vmask, &vflags);
-	flags = NIL_P(vflags) ? cur_flags(fd) : rb_sp_get_flags(self, vflags);
+	flags = NIL_P(vflags) ? cur_flags(fd)
+				: rb_sp_get_flags(self, vflags, 0);
 	value2sigset(&mask, vmask);
 
 	rc = signalfd(fd, &mask, flags);
@@ -128,7 +129,7 @@ static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 	int fd;
 
 	rb_scan_args(argc, argv, "02", &vmask, &vflags);
-	flags = rb_sp_get_flags(klass, vflags);
+	flags = rb_sp_get_flags(klass, vflags, RB_SP_CLOEXEC(SFD_CLOEXEC));
 	value2sigset(&mask, vmask);
 
 	fd = signalfd(-1, &mask, flags);

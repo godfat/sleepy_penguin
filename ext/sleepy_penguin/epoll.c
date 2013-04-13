@@ -96,7 +96,8 @@ out:
  */
 static VALUE s_new(VALUE klass, VALUE _flags)
 {
-	int flags = rb_sp_get_flags(klass, _flags);
+	int default_flags = RB_SP_CLOEXEC(EPOLL_CLOEXEC);
+	int flags = rb_sp_get_flags(klass, _flags, default_flags);
 	int fd = epoll_create1(flags);
 	VALUE rv;
 

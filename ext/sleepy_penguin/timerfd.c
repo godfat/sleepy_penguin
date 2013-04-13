@@ -26,8 +26,8 @@ static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 	int fd;
 
 	rb_scan_args(argc, argv, "02", &cid, &fl);
-	clockid = NIL_P(cid) ? CLOCK_MONOTONIC : rb_sp_get_flags(klass, cid);
-	flags = rb_sp_get_flags(klass, fl);
+	clockid = NIL_P(cid) ? CLOCK_MONOTONIC : rb_sp_get_flags(klass, cid, 0);
+	flags = rb_sp_get_flags(klass, fl, RB_SP_CLOEXEC(TFD_CLOEXEC));
 
 	fd = timerfd_create(clockid, flags);
 	if (fd == -1) {
@@ -66,7 +66,7 @@ static VALUE itimerspec2ary(struct itimerspec *its)
 static VALUE settime(VALUE self, VALUE fl, VALUE interval, VALUE value)
 {
 	int fd = rb_sp_fileno(self);
-	int flags = rb_sp_get_flags(self, fl);
+	int flags = rb_sp_get_flags(self, fl, 0);
 	struct itimerspec old, new;
 
 	value2timespec(&new.it_interval, interval);
