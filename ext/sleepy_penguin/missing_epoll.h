@@ -15,7 +15,7 @@ static int my_epoll_create1(int flags)
 	if (fd < 0 || flags == 0)
 		return fd;
 
-	if ((flags & EPOLL_CLOEXEC) && (fcntl(fd, F_SETFD, FD_CLOEXEC) == -1))
+	if ((flags & EPOLL_CLOEXEC) && (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0))
 		goto err;
 	return fd;
 err:

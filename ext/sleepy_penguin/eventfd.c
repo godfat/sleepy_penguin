@@ -30,12 +30,12 @@ static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 	flags = rb_sp_get_flags(klass, _flags, RB_SP_CLOEXEC(EFD_CLOEXEC));
 
 	fd = eventfd(initval, flags);
-	if (fd == -1) {
+	if (fd < 0) {
 		if (errno == EMFILE || errno == ENFILE || errno == ENOMEM) {
 			rb_gc();
 			fd = eventfd(initval, flags);
 		}
-		if (fd == -1)
+		if (fd < 0)
 			rb_sys_fail("eventfd");
 	}
 
@@ -88,7 +88,7 @@ static VALUE incr(int argc, VALUE *argv, VALUE self)
 	x.val = (uint64_t)NUM2ULL(value);
 retry:
 	w = (ssize_t)rb_sp_fd_region(efd_write, &x, x.fd);
-	if (w == -1) {
+	if (w < 0) {
 		if (errno == EAGAIN && RTEST(nonblock))
 			return Qfalse;
 		if (rb_sp_wait(rb_io_wait_writable, self, &x.fd))
@@ -124,7 +124,7 @@ static VALUE getvalue(int argc, VALUE *argv, VALUE self)
 	RTEST(nonblock) ? rb_sp_set_nonblock(x.fd) : blocking_io_prepare(x.fd);
 retry:
 	w = (ssize_t)rb_sp_fd_region(efd_read, &x, x.fd);
-	if (w == -1) {
+	if (w < 0) {
 		if (errno == EAGAIN && RTEST(nonblock))
 			return Qnil;
 		if (rb_sp_wait(rb_io_wait_readable, self, &x.fd))

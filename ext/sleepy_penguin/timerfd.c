@@ -30,12 +30,12 @@ static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 	flags = rb_sp_get_flags(klass, fl, RB_SP_CLOEXEC(TFD_CLOEXEC));
 
 	fd = timerfd_create(clockid, flags);
-	if (fd == -1) {
+	if (fd < 0) {
 		if (errno == EMFILE || errno == ENFILE || errno == ENOMEM) {
 			rb_gc();
 			fd = timerfd_create(clockid, flags);
 		}
-		if (fd == -1)
+		if (fd < 0)
 			rb_sys_fail("timerfd_create");
 	}
 
@@ -72,7 +72,7 @@ static VALUE settime(VALUE self, VALUE fl, VALUE interval, VALUE value)
 	value2timespec(&new.it_interval, interval);
 	value2timespec(&new.it_value, value);
 
-	if (timerfd_settime(fd, flags, &new, &old) == -1)
+	if (timerfd_settime(fd, flags, &new, &old) < 0)
 		rb_sys_fail("timerfd_settime");
 
 	return itimerspec2ary(&old);
@@ -89,7 +89,7 @@ static VALUE gettime(VALUE self)
 	int fd = rb_sp_fileno(self);
 	struct itimerspec curr;
 
-	if (timerfd_gettime(fd, &curr) == -1)
+	if (timerfd_gettime(fd, &curr) < 0)
 		rb_sys_fail("timerfd_gettime");
 
 	return itimerspec2ary(&curr);
@@ -126,7 +126,7 @@ static VALUE expirations(int argc, VALUE *argv, VALUE self)
 		blocking_io_prepare(fd);
 retry:
 	r = (ssize_t)rb_sp_fd_region(tfd_read, &buf, fd);
-	if (r == -1) {
+	if (r < 0) {
 		if (errno == EAGAIN && RTEST(nonblock))
 			return Qnil;
 		if (rb_sp_wait(rb_io_wait_readable, self, &fd))

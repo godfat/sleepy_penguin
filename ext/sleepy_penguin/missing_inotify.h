@@ -36,13 +36,13 @@ static int my_inotify_init1(int flags)
 
 	if (fd < 0)
 		return fd;
-	if ((flags & IN_CLOEXEC) && (fcntl(fd, F_SETFD, FD_CLOEXEC) == -1))
+	if ((flags & IN_CLOEXEC) && (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0))
 		goto fcntl_err;
 	if (flags & IN_NONBLOCK) {
 		tmp = fcntl(fd, F_GETFL);
 		if (tmp == -1)
 			goto fcntl_err;
-		if ((fcntl(fd, F_SETFL, tmp | O_NONBLOCK) != 0))
+		if ((fcntl(fd, F_SETFL, tmp | O_NONBLOCK) < 0))
 			goto fcntl_err;
 	}
 

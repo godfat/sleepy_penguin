@@ -97,7 +97,7 @@ static VALUE update_bang(int argc, VALUE *argv, VALUE self)
 	value2sigset(&mask, vmask);
 
 	rc = signalfd(fd, &mask, flags);
-	if (rc == -1)
+	if (rc < 0)
 		rb_sys_fail("signalfd");
 	return self;
 }
@@ -133,12 +133,12 @@ static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 	value2sigset(&mask, vmask);
 
 	fd = signalfd(-1, &mask, flags);
-	if (fd == -1) {
+	if (fd < 0) {
 		if (errno == EMFILE || errno == ENFILE || errno == ENOMEM) {
 			rb_gc();
 			fd = signalfd(-1, &mask, flags);
 		}
-		if (fd == -1)
+		if (fd < 0)
 			rb_sys_fail("signalfd");
 	}
 
@@ -196,7 +196,7 @@ static VALUE sfd_take(int argc, VALUE *argv, VALUE self)
 retry:
 	ssi->ssi_fd = fd;
 	r = (ssize_t)rb_sp_fd_region(sfd_read, ssi, fd);
-	if (r == -1) {
+	if (r < 0) {
 		if (errno == EAGAIN && RTEST(nonblock))
 			return Qnil;
 		if (rb_sp_wait(rb_io_wait_readable, self, &fd))

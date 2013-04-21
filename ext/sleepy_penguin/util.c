@@ -131,7 +131,7 @@ void rb_sp_set_nonblock(int fd)
 	 * anything.
 	 */
 	flags = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-	if (flags == -1)
+	if (flags < 0)
 		rb_sys_fail("fcntl(F_SETFL)");
 }
 

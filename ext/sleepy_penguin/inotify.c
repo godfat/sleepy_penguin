@@ -30,12 +30,12 @@ static VALUE s_new(int argc, VALUE *argv, VALUE klass)
 	flags = rb_sp_get_flags(klass, _flags, RB_SP_CLOEXEC(IN_CLOEXEC));
 
 	fd = inotify_init1(flags);
-	if (fd == -1) {
+	if (fd < 0) {
 		if (errno == EMFILE || errno == ENFILE || errno == ENOMEM) {
 			rb_gc();
 			fd = inotify_init1(flags);
 		}
-		if (fd == -1)
+		if (fd < 0)
 			rb_sys_fail("inotify_init1");
 	}
 
@@ -93,7 +93,7 @@ static VALUE add_watch(VALUE self, VALUE path, VALUE vmask)
 	uint32_t mask = rb_sp_get_uflags(self, vmask);
 	int rc = inotify_add_watch(fd, pathname, mask);
 
-	if (rc == -1)
+	if (rc < 0)
 		rb_sys_fail("inotify_add_watch");
 
 	return UINT2NUM((uint32_t)rc);
@@ -112,7 +112,7 @@ static VALUE rm_watch(VALUE self, VALUE vwd)
 	int fd = rb_sp_fileno(self);
 	int rc = inotify_rm_watch(fd, wd);
 
-	if (rc == -1)
+	if (rc < 0)
 		rb_sys_fail("inotify_rm_watch");
 	return INT2NUM(rc);
 }

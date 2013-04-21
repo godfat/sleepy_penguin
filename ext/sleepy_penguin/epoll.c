@@ -106,7 +106,7 @@ static VALUE s_new(VALUE klass, VALUE _flags)
 			rb_gc();
 			fd = epoll_create1(flags);
 		}
-		if (fd == -1)
+		if (fd < 0)
 			rb_sys_fail("epoll_create1");
 	}
 
@@ -150,7 +150,7 @@ static VALUE epwait_result(struct ep_per_thread *ept, int n)
 	struct epoll_event *epoll_event = ept->events;
 	VALUE obj_events, obj;
 
-	if (n == -1)
+	if (n < 0)
 		rb_sys_fail("epoll_wait");
 
 	for (i = n; --i >= 0; epoll_event++) {
@@ -192,7 +192,7 @@ static VALUE real_epwait(struct ep_per_thread *ept)
 
 	do {
 		n = (long)rb_sp_fd_region(nogvl_wait, ept, ept->fd);
-	} while (n == -1 && epoll_resume_p(expire_at, ept));
+	} while (n < 0 && epoll_resume_p(expire_at, ept));
 
 	return epwait_result(ept, (int)n);
 }
