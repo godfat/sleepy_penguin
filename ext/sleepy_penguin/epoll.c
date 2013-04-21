@@ -65,6 +65,12 @@ static struct ep_per_thread *ept_get(VALUE self, int maxevents)
 	int err;
 	void *ptr;
 
+	/* error check here to prevent OOM from posix_memalign */
+	if (maxevents <= 0) {
+		errno = EINVAL;
+		rb_sys_fail("epoll_wait maxevents <= 0");
+	}
+
 	if (ept && ept->capa >= maxevents)
 		goto out;
 
