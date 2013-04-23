@@ -545,4 +545,4 @@ class TestEpoll < Test::Unit::TestCase
     end
     @ep.wait(1) { |flags, io| assert_equal(first[0], io) }
   end
-end
+end if defined?(SleepyPenguin::Epoll)

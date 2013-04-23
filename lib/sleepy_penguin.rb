@@ -5,7 +5,6 @@ module SleepyPenguin
   SLEEPY_PENGUIN_VERSION = '3.1.0'
 end
 require 'sleepy_penguin_ext'
-require 'sleepy_penguin/epoll'
 
 # We need to serialize Inotify#take for Rubinius since that has no GVL
 # to protect the internal array

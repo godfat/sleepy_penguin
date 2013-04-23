@@ -1,5 +1,5 @@
 require 'mkmf'
-have_header('sys/epoll.h') or abort 'sys/epoll.h not found'
+have_header('sys/epoll.h')
 have_header('sys/eventfd.h')
 
 # it's impossible to use signalfd reliably with Ruby since Ruby currently

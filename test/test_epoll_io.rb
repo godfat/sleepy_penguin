@@ -21,4 +21,4 @@ class TestEpollIO < Test::Unit::TestCase
     @epio.epoll_wait { |events, obj| ev << [ events, obj ] }
     assert_equal([[Epoll::OUT, @wr]], ev)
   end
-end
+end if defined?(SleepyPenguin::Epoll)

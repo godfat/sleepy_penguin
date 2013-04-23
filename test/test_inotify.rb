@@ -107,4 +107,4 @@ class TestInotify < Test::Unit::TestCase
     end
     assert_equal 0, nr
   end
-end
+end if defined?(SleepyPenguin::Inotify)

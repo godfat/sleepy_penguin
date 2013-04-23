@@ -1,4 +1,5 @@
 #include "sleepy_penguin.h"
+#ifdef HAVE_SYS_EPOLL_H
 #include <sys/epoll.h>
 #include <unistd.h>
 #include <time.h>
@@ -348,4 +349,8 @@ void sleepy_penguin_init_epoll(void)
 
 	if (RB_SP_GREEN_THREAD)
 		rb_require("sleepy_penguin/epoll/io");
+
+	/* the high-level interface is implemented in Ruby: */
+	rb_require("sleepy_penguin/epoll");
 }
+#endif /* HAVE_SYS_EPOLL_H */

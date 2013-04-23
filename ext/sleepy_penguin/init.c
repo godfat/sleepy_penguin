@@ -4,7 +4,11 @@
 #define L1_CACHE_LINE_MAX 128 /* largest I've seen (Pentium 4) */
 size_t rb_sp_l1_cache_line_size;
 
+#ifdef HAVE_SYS_EPOLL_H
 void sleepy_penguin_init_epoll(void);
+#else
+#  define sleepy_penguin_init_epoll() for(;0;)
+#endif
 
 #ifdef HAVE_SYS_TIMERFD_H
 void sleepy_penguin_init_timerfd(void);
