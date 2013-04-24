@@ -36,7 +36,7 @@ $(ext_pfx)/$(ext)/%: $(ext)/% $(ext_d)
 	install -m 644 $< $@
 $(ext_pfx)/$(ext)/Makefile: $(ext)/extconf.rb $(ext_d) $(ext_h)
 	$(RM) -f $(@D)/*.o
-	cd $(@D) && $(RUBY) $(CURDIR)/$(ext)/extconf.rb
+	cd $(@D) && $(RUBY) $(CURDIR)/$(ext)/extconf.rb $(EXTCONF_ARGS)
 ext_sfx := _ext.$(DLEXT)
 ext_dl := $(ext_pfx)/$(ext)/$(notdir $(ext)_ext.$(DLEXT))
 $(ext_dl): $(ext_src) $(ext_pfx_src) $(ext_pfx)/$(ext)/Makefile
