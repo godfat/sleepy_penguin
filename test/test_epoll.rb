@@ -122,11 +122,9 @@ class TestEpoll < Test::Unit::TestCase
   end
 
   def teardown
-    assert_nothing_raised do
-      @rd.close unless @rd.closed?
-      @wr.close unless @wr.closed?
-      @ep.close unless @ep.closed?
-    end
+    @rd.close unless @rd.closed?
+    @wr.close unless @wr.closed?
+    @ep.close unless @ep.closed?
   end
 
   def test_max_events_big
@@ -170,11 +168,9 @@ class TestEpoll < Test::Unit::TestCase
       exit!(0)
     end
     time[:START_WAIT] = Time.now
-    assert_nothing_raised do
-      @ep.wait do |flags, obj|
-        tmp << [ flags, obj ]
-        time[:EP] = Time.now
-      end
+    @ep.wait do |flags, obj|
+      tmp << [ flags, obj ]
+      time[:EP] = Time.now
     end
     assert_equal([[Epoll::IN, @rd]], tmp)
     _, status = Process.waitpid2(pid)
@@ -222,12 +218,10 @@ class TestEpoll < Test::Unit::TestCase
 
   def test_multiple
     r, w = IO.pipe
-    assert_nothing_raised do
-      @ep.add r, Epoll::IN
-      @ep.add @rd, Epoll::IN
-      @ep.add w, Epoll::OUT
-      @ep.add @wr, Epoll::OUT
-    end
+    @ep.add r, Epoll::IN
+    @ep.add @rd, Epoll::IN
+    @ep.add w, Epoll::OUT
+    @ep.add @wr, Epoll::OUT
     tmp = []
     @ep.wait { |flags, obj| tmp << [ flags, obj ] }
     assert_equal 2, tmp.size
@@ -238,16 +232,14 @@ class TestEpoll < Test::Unit::TestCase
   end
 
   def test_gc
-    assert_nothing_raised { 4096.times { Epoll.new } }
+    4096.times { Epoll.new }
     assert ! @ep.closed?
   end unless RBX
 
   def test_gc_to_io
-    assert_nothing_raised do
-      4096.times do
-        ep = Epoll.new
-        assert_kind_of IO, ep.to_io
-      end
+    4096.times do
+      ep = Epoll.new
+      assert_kind_of IO, ep.to_io
     end
     assert ! @ep.closed?
   end unless RBX
@@ -259,7 +251,7 @@ class TestEpoll < Test::Unit::TestCase
     clone.add @wr, Epoll::OUT
     @ep.wait(nil, 0) { |flags, obj| tmp << [ flags, obj ] }
     assert_equal([[Epoll::OUT, @wr]], tmp)
-    assert_nothing_raised { clone.close }
+    clone.close
   end
 
   def test_dup
@@ -269,16 +261,14 @@ class TestEpoll < Test::Unit::TestCase
     clone.add @wr, Epoll::OUT
     @ep.wait(nil, 0) { |flags, obj| tmp << [ flags, obj ] }
     assert_equal([[Epoll::OUT, @wr]], tmp)
-    assert_nothing_raised { clone.close }
+    clone.close
   end
 
   def test_set_idempotency
-    assert_nothing_raised do
-      @ep.set @rd, Epoll::IN
-      @ep.set @rd, Epoll::IN
-      @ep.set @wr, Epoll::OUT
-      @ep.set @wr, Epoll::OUT
-    end
+    @ep.set @rd, Epoll::IN
+    @ep.set @rd, Epoll::IN
+    @ep.set @wr, Epoll::OUT
+    @ep.set @wr, Epoll::OUT
   end
 
   def test_wait_timeout
@@ -290,10 +280,8 @@ class TestEpoll < Test::Unit::TestCase
 
   def test_del
     assert_raises(Errno::ENOENT) { @ep.del(@rd) }
-    assert_nothing_raised do
-      @ep.add(@rd, Epoll::IN)
-      @ep.del(@rd)
-    end
+    @ep.add(@rd, Epoll::IN)
+    @ep.del(@rd)
   end
 
   def test_wait_read
@@ -368,7 +356,7 @@ class TestEpoll < Test::Unit::TestCase
   def test_delete
     assert_nil @ep.delete(@rd)
     assert_nil @ep.delete(@wr)
-    assert_nothing_raised { @ep.add @rd, Epoll::IN }
+    @ep.add @rd, Epoll::IN
     assert_equal @rd, @ep.delete(@rd)
     assert_nil @ep.delete(@rd)
   end
@@ -471,7 +459,7 @@ class TestEpoll < Test::Unit::TestCase
       exit!(0)
     end
     while tmp.empty?
-      assert_nothing_raised { @ep.wait(nil, 100) { |flags,obj| tmp << obj } }
+      @ep.wait(nil, 100) { |flags,obj| tmp << obj }
       empty += 1
     end
     _, status = Process.waitpid2(pid)
