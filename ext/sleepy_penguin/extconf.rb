@@ -1,5 +1,9 @@
 require 'mkmf'
 have_header('sys/epoll.h')
+dir_config('kqueue')
+have_library('kqueue')
+have_header('sys/event.h')
+have_header('sys/mount.h')
 have_header('sys/eventfd.h')
 
 # it's impossible to use signalfd reliably with Ruby since Ruby currently

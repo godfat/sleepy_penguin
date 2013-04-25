@@ -77,4 +77,16 @@ static inline VALUE fake_blocking_region(VALUE (*fn)(void *), void *data)
 
 typedef int rb_sp_waitfn(int fd);
 int rb_sp_wait(rb_sp_waitfn waiter, VALUE obj, int *fd);
+
+/* Flexible array elements are standard in C99 */
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
+# define FLEX_ARRAY
+#elif defined(__GNUC__)
+# if (__GNUC__ >= 3)
+#  define FLEX_ARRAY
+# else
+#  define FLEX_ARRAY 0
+# endif
+#endif
+
 #endif /* SLEEPY_PENGUIN_H */

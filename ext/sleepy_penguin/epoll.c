@@ -29,16 +29,6 @@ static VALUE unpack_event_data(struct epoll_event *event)
 	return (VALUE)event->data.ptr;
 }
 
-#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
-# define FLEX_ARRAY
-#elif defined(__GNUC__)
-# if (__GNUC__ >= 3)
-#  define FLEX_ARRAY
-# else
-#  define FLEX_ARRAY 0
-# endif
-#endif
-
 struct ep_per_thread {
 	VALUE io;
 	int fd;

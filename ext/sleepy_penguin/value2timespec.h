@@ -53,7 +53,7 @@ static struct timespec *value2timespec(struct timespec *ts, VALUE num)
 #  define TIMET2NUM(n) LONG2NUM(n)
 #endif
 
-static VALUE timespec2num(struct timespec *ts)
+static inline VALUE timespec2num(struct timespec *ts)
 {
 	if (ts->tv_nsec == 0)
 		return TIMET2NUM(ts->tv_sec);
