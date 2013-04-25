@@ -9,7 +9,6 @@ require 'sleepy_penguin'
 
 class TestEpollOptimizations < Test::Unit::TestCase
   include SleepyPenguin
-  RBX = defined?(RUBY_ENGINE) && (RUBY_ENGINE == 'rbx')
   IO_PURGATORY = []
 
   def setup

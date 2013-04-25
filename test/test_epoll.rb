@@ -9,7 +9,6 @@ require 'sleepy_penguin'
 
 class TestEpoll < Test::Unit::TestCase
   include SleepyPenguin
-  RBX = defined?(RUBY_ENGINE) && (RUBY_ENGINE == 'rbx')
 
   def setup
     @rd, @wr = IO.pipe
@@ -181,7 +180,7 @@ class TestEpoll < Test::Unit::TestCase
     assert_in_delta(0.5, ep_delay, 0.1, "ep1_delay=#{ep_delay}")
     ensure
       trap(:USR1, 'DEFAULT')
-  end unless RBX
+  end
 
   def test_close
     @ep.add @rd, Epoll::IN
@@ -230,19 +229,6 @@ class TestEpoll < Test::Unit::TestCase
     assert ios.include?(@wr)
     assert ios.include?(w)
   end
-
-  def test_gc
-    4096.times { Epoll.new }
-    assert ! @ep.closed?
-  end unless RBX
-
-  def test_gc_to_io
-    4096.times do
-      ep = Epoll.new
-      assert_kind_of IO, ep.to_io
-    end
-    assert ! @ep.closed?
-  end unless RBX
 
   def test_clone
     tmp = []

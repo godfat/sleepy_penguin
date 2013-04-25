@@ -8,7 +8,6 @@ require 'sleepy_penguin'
 
 class TestEpollIO < Test::Unit::TestCase
   include SleepyPenguin
-  RBX = defined?(RUBY_ENGINE) && (RUBY_ENGINE == 'rbx')
 
   def setup
     @rd, @wr = IO.pipe
