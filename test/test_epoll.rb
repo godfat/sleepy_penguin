@@ -154,10 +154,13 @@ class TestEpoll < Test::Unit::TestCase
 
   def test_signal_safe_wait_forever
     time = {}
+    thr = nil
     trap(:USR1) do
       time[:USR1] = Time.now
-      sleep 0.5
-      @wr.write '.'
+      thr = Thread.new do
+        sleep 0.5
+        @wr.syswrite '.'
+      end
     end
     @ep.add @rd, Epoll::IN
     tmp = []
@@ -178,6 +181,8 @@ class TestEpoll < Test::Unit::TestCase
     assert_in_delta(0.5, usr1_delay, 0.1, "usr1_delay=#{usr1_delay}")
     ep_delay = time[:EP] - time[:USR1]
     assert_in_delta(0.5, ep_delay, 0.1, "ep1_delay=#{ep_delay}")
+    assert_kind_of Thread, thr
+    thr.join
     ensure
       trap(:USR1, 'DEFAULT')
   end
