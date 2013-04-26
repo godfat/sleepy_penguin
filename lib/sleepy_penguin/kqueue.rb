@@ -8,23 +8,28 @@ require 'thread'
 # Events registered to a Kqueue object cannot be shared across fork
 # due to the underlying implementation of kqueue in *BSDs.
 class SleepyPenguin::Kqueue
-  # Kqueue objects may be watched by IO.select and similar methods
-  attr_reader :to_io
-
   def initialize
-    @to_io = SleepyPenguin::Kqueue::IO.new
+    @io = SleepyPenguin::Kqueue::IO.new
     @mtx = Mutex.new
     @pid = $$
-    @copies = { @to_io => self }
+    @copies = { @io => self }
+  end
+
+  # Kqueue objects may be watched by IO.select and similar methods
+  def to_io
+    @mtx.synchronize do
+      __kq_check
+      @io
+    end
   end
 
   def __kq_reinit # :nodoc:
-    @to_io = SleepyPenguin::Kqueue::IO.new
+    @io = SleepyPenguin::Kqueue::IO.new
   end
 
   def __kq_check # :nodoc:
-    return if @pid == $$ || @to_io.closed?
-    unless @to_io.respond_to?(:autoclose=)
+    return if @pid == $$ || @io.closed?
+    unless @io.respond_to?(:autoclose=)
       raise RuntimeError,
        "Kqueue is not safe to use without IO#autoclose=, upgrade to Ruby 1.9+"
     end
@@ -35,7 +40,7 @@ class SleepyPenguin::Kqueue
     @copies.clear
     __kq_reinit
     objects.each do |obj|
-      io_dup = @to_io.dup
+      io_dup = @io.dup
       @copies[io_dup] = obj
     end
     @pid = $$
@@ -61,7 +66,7 @@ class SleepyPenguin::Kqueue
     end
 
     if block_given?
-      n = @to_io.kevent(changelist, *args) do |ident,filter,flags,
+      n = @io.kevent(changelist, *args) do |ident,filter,flags,
                                                fflags,data,udata|
         # This may raise and cause events to be lost,
         # that's the users' fault/problem
@@ -70,7 +75,7 @@ class SleepyPenguin::Kqueue
                                         fflags, data, udata)
       end
     else
-      n = @to_io.kevent(changelist, *args)
+      n = @io.kevent(changelist, *args)
     end
   end
 
@@ -78,9 +83,9 @@ class SleepyPenguin::Kqueue
     @mtx.synchronize do
       __kq_check
       rv = super
-      unless @to_io.closed?
-        @to_io = @to_io.dup
-        @copies[@to_io] = self
+      unless @io.closed?
+        @io = @io.dup
+        @copies[@io] = self
       end
       rv
     end
@@ -93,8 +98,8 @@ class SleepyPenguin::Kqueue
   # Raises IOError if object is already closed.
   def close
     @mtx.synchronize do
-      @copies.delete(@to_io)
-      @to_io.close
+      @copies.delete(@io)
+      @io.close
     end
   end
 
@@ -104,7 +109,7 @@ class SleepyPenguin::Kqueue
   # Returns whether or not an Kqueue object is closed.
   def closed?
     @mtx.synchronize do
-      @to_io.closed?
+      @io.closed?
     end
   end
 end
