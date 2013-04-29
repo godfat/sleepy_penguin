@@ -153,14 +153,17 @@ class TestEpoll < Test::Unit::TestCase
   end
 
   def test_signal_safe_wait_forever
+    sigpipe = IO.pipe
     time = {}
-    thr = nil
+    thr = Thread.new do
+      IO.select([sigpipe[0]]) # wait for USR1
+      sigpipe[0].read(1)
+      sleep 0.5
+      @wr.syswrite '.'
+    end
     trap(:USR1) do
       time[:USR1] = Time.now
-      thr = Thread.new do
-        sleep 0.5
-        @wr.syswrite '.'
-      end
+      sigpipe[1].syswrite('.') # wake up thr
     end
     @ep.add @rd, Epoll::IN
     tmp = []
@@ -184,6 +187,7 @@ class TestEpoll < Test::Unit::TestCase
     assert_kind_of Thread, thr
     thr.join
     ensure
+      sigpipe.each { |io| io.close }
       trap(:USR1, 'DEFAULT')
   end
 
