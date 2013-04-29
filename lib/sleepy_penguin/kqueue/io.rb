@@ -15,11 +15,12 @@ class SleepyPenguin::Kqueue::IO
       expire_at = timeout ? Time.now + timeout : nil
       begin
         IO.select([self], nil, nil, timeout)
-        n = __kevent(changelist, nevents, 0) do |a,b,c,d,e,f|
-          yield a, b, c, d, e
+        n = __kevent(changelist, nevents, 0) do |*args|
+          yield(*args)
         end
-      end while n == 0 &&
+      end while n == 0 && timeout != 0 &&
                 (expire_at == nil || timeout = __update_timeout(expire_at))
+      n
     else
       # nevents should be zero or nil here
       __kevent(changelist, nevents, 0)
