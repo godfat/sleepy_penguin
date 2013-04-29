@@ -71,4 +71,5 @@ class TestKqueue < Test::Unit::TestCase
   ensure
     kq.close
   end
-end if defined?(SleepyPenguin::Kqueue)
+end if defined?(SleepyPenguin::Kqueue) &&
+       IO.instance_methods.include?(:autoclose=)
