@@ -34,6 +34,7 @@ class TestKqueue < Test::Unit::TestCase
     end
     assert_equal 0, events.size
     assert_equal 0, n
+    thr.join
 
     # synchronous add
     events = []
@@ -51,5 +52,23 @@ class TestKqueue < Test::Unit::TestCase
     kq.close
     rd.close if rd
     wr.close if wr
+  end
+
+  def test_usable_after_fork
+    kq = Kqueue.new
+    pid = fork do
+      begin
+        ok = false
+        assert_equal(0, kq.kevent(nil, 1, 0.1) { exit!(false) })
+        ok = true
+      ensure
+        exit!(ok)
+      end
+    end
+    assert_equal(0, kq.kevent(nil, 1, 0.1) { exit!(false) })
+    _, status = Process.waitpid2(pid)
+    assert status.success?, status.inspect
+  ensure
+    kq.close
   end
 end if defined?(SleepyPenguin::Kqueue)
