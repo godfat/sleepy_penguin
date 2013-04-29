@@ -72,6 +72,8 @@ class TestKqueueIO < Test::Unit::TestCase
     assert_equal EvFilt::READ, events[0][1]
     assert_equal 1, n
 
+    thr.join
+
     # we should be drained
     events = []
     n = kq.kevent(nil, 1, 0) do |ident,filter,flags,fflags,data,udata|
