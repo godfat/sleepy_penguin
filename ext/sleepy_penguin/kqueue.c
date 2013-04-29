@@ -24,6 +24,18 @@
 #  define NUM2USHORT(n) (short)NUM2UINT(n)
 #endif
 
+/*
+ * Rubinius does not support RSTRUCT_* in the C API:
+ * ref: https://github.com/rubinius/rubinius/issues/494
+ */
+#if defined(RUBINIUS)
+#  define RBX_STRUCT (1)
+#  define RSTRUCT_LEN(s) 0, rb_bug("RSTRUCT_LEN attempted in Rubinius")
+#  define RSTRUCT_PTR(s) NULL, rb_bug("RSTRUCT_PTR attempted in Rubinius")
+#else
+#  define RBX_STRUCT (0)
+#endif
+
 static const long NANO_PER_SEC = 1000000000;
 static ID id_for_fd;
 static VALUE mEv, mEvFilt, mNote, mVQ;
@@ -233,33 +245,42 @@ static void event_set(struct kevent *event, VALUE *chg)
 	EV_SET(event, ident, filter, flags, fflags, data, udata);
 }
 
+/* sets ptr and len */
+static void unpack_event(VALUE **ptr, VALUE *len, VALUE *event)
+{
+	switch (TYPE(*event)) {
+	case T_STRUCT:
+		if (RBX_STRUCT) {
+			*event = rb_funcall(*event, rb_intern("to_a"), 0, 0);
+			/* fall-through to T_ARRAY */
+		} else {
+			*len = RSTRUCT_LEN(*event);
+			*ptr = RSTRUCT_PTR(*event);
+			return;
+		}
+	case T_ARRAY:
+		*len = RARRAY_LEN(*event);
+		*ptr = RARRAY_PTR(*event);
+		return;
+	default:
+		rb_raise(rb_eTypeError, "unsupported type in changelist");
+	}
+}
+
 static void ary2eventlist(struct kevent *events, VALUE changelist)
 {
 	VALUE *chg = RARRAY_PTR(changelist);
 	long i = RARRAY_LEN(changelist);
+	VALUE event;
 
 	for (; --i >= 0; chg++) {
 		VALUE clen;
 		VALUE *cptr;
 
-		switch (TYPE(*chg)) {
-		case T_STRUCT:
-			clen = RSTRUCT_LEN(*chg);
-			cptr = RSTRUCT_PTR(*chg);
-			break;
-		case T_ARRAY:
-			clen = RARRAY_LEN(*chg);
-			cptr = RARRAY_PTR(*chg);
-			break;
-		default:
-			rb_raise(rb_eTypeError,
-				 "unsupported type in changelist");
-		}
-		if (clen != 6) {
-			fprintf(stderr, "clen: %ld\n", clen);
-			rb_p(*chg);
+		event = *chg;
+		unpack_event(&cptr, &clen, &event);
+		if (clen != 6)
 			goto out_list;
-		}
 		event_set(events++, cptr);
 	}
 	return;
@@ -273,14 +294,23 @@ out_list:
  */
 static void changelist_prepare(struct kevent *events, VALUE changelist)
 {
+	VALUE *cptr;
+	VALUE clen;
+	VALUE event;
+
 	switch (TYPE(changelist)) {
 	case T_ARRAY:
 		ary2eventlist(events, changelist);
-		break;
+		return;
 	case T_STRUCT:
-		if (RSTRUCT_LEN(changelist) != 6)
+		event = changelist;
+		unpack_event(&cptr, &clen, &event);
+		if (clen != 6)
 			rb_raise(rb_eTypeError, "event is not a Kevent struct");
-		event_set(events, RSTRUCT_PTR(changelist));
+		event_set(events, cptr);
+		return;
+	default:
+		rb_bug("changelist_prepare not type filtered by sp_kevent");
 	}
 }
 

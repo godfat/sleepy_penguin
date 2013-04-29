@@ -16,6 +16,12 @@ class TestKqueueIO < Test::Unit::TestCase
     end
   end
 
+  def test_bad_type
+    kq = Kqueue::IO.new
+    @to_close << kq
+    assert_raises(TypeError) { kq.kevent("HI") }
+  end
+
   def test_multi_event
     kq = Kqueue::IO.new
     @to_close << kq
