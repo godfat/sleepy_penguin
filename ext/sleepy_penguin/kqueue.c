@@ -317,6 +317,7 @@ static VALUE sp_kevent(int argc, VALUE *argv, VALUE self)
 			rb_raise(rb_eArgError,
 				"nevents specified but block not given");
 		nevents = 0;
+		timeout = INT2FIX(0);
 	}
 
 	kpt = kpt_get(self, nchanges, nevents);
