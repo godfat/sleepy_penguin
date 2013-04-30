@@ -67,7 +67,7 @@ class SleepyPenguin::Epoll
     @io.epoll_wait(maxevents, timeout) { |events, io| yield(events, io) }
   ensure
     # hopefully Ruby does not optimize this array away...
-    snapshot[0]
+    snapshot.clear
   end
 
   # Starts watching a given +io+ object with +events+ which may be an Integer
