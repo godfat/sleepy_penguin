@@ -197,7 +197,8 @@ class TestEpoll < Test::Unit::TestCase
     thr = Thread.new { @ep.wait { |flags, obj| tmp << [ flags, obj ] } }
     @rd.close
     @wr.close
-    assert_nil thr.join(0.01)
+    Thread.pass
+    assert_nil thr.join(0.25)
     assert thr.alive?
     thr.kill
     assert tmp.empty?
