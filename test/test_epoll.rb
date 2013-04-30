@@ -450,7 +450,7 @@ class TestEpoll < Test::Unit::TestCase
       trap(:USR1, "DEFAULT")
       sleep 0.1
       ppid = Process.ppid
-      nr.times { Process.kill(:USR1, ppid); sleep 0.01 }
+      nr.times { Process.kill(:USR1, ppid); sleep 0.05 }
       @wr.syswrite('.')
       exit!(0)
     end
