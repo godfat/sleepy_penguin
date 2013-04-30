@@ -201,6 +201,7 @@ class TestEpoll < Test::Unit::TestCase
     assert thr.alive?
     thr.kill
     assert tmp.empty?
+    thr.join
   end
 
   def test_rdhup
