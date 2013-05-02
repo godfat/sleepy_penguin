@@ -2,19 +2,21 @@
 
 sleepy_penguin provides access to newer, Linux-only system calls to wait
 on events from traditionally non-I/O sources.  Bindings to the eventfd,
-timerfd, inotify, and epoll interfaces are provided.
+timerfd, inotify, and epoll interfaces are provided.  Experimental support
+for kqueue on FreeBSD (and likely OpenBSD/NetBSD) are also provided.
 
 == Features
 
-* Thread-safe blocking operations for all versions of Ruby
+* Thread-safe blocking operations for all versions of Matz Ruby and Rubinius
 
 * IO-like objects are backwards-compatible with IO.select.
 
-* Epoll interface is fork-safe and GC-safe
+* High-level Epoll interface is fork-safe and GC-safe
 
 * Unlike portable event frameworks, the Linux-only epoll interfaces
   allow using edge-triggered or one-shot notifications for possibly
-  improved performance
+  improved performance.  Likewise, the kqueue interface supports
+  one-shot notifiactions, too.
 
 * Fully-documented and user-friendly API
 
