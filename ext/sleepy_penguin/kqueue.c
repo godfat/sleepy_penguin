@@ -158,8 +158,12 @@ static VALUE kevent_result(struct kq_per_thread *kpt, int nevents)
 	int i;
 	struct kevent *event = kpt->events;
 
-	if (nevents < 0)
-		rb_sys_fail("kevent");
+	if (nevents < 0) {
+		if (errno == EINTR)
+			nevents = 0;
+		else
+			rb_sys_fail("kevent");
+	}
 
 	for (i = nevents; --i >= 0; event++)
 		yield_kevent(event);

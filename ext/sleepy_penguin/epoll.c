@@ -147,8 +147,12 @@ static VALUE epwait_result(struct ep_per_thread *ept, int n)
 	struct epoll_event *epoll_event = ept->events;
 	VALUE obj_events, obj;
 
-	if (n < 0)
-		rb_sys_fail("epoll_wait");
+	if (n < 0) {
+		if (errno == EINTR)
+			n = 0;
+		else
+			rb_sys_fail("epoll_wait");
+	}
 
 	for (i = n; --i >= 0; epoll_event++) {
 		obj_events = UINT2NUM(epoll_event->events);
