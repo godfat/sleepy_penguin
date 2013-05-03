@@ -365,14 +365,13 @@ static VALUE sp_kevent(int argc, VALUE *argv, VALUE self)
 			rb_raise(rb_eArgError,
 				"block given but nevents not specified");
 		nevents = NUM2INT(events);
-		if (nevents <= 0)
-			rb_raise(rb_eArgError, "nevents must be positive");
+		if (nevents < 0)
+			rb_raise(rb_eArgError, "nevents must be non-negative");
 	} else {
 		if (!NIL_P(events))
 			rb_raise(rb_eArgError,
 				"nevents specified but block not given");
 		nevents = 0;
-		timeout = INT2FIX(0);
 	}
 
 	kpt = kpt_get(self, nchanges, nevents);
