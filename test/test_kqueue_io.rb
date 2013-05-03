@@ -16,6 +16,13 @@ class TestKqueueIO < Test::Unit::TestCase
     end
   end
 
+  def test_io_like
+    kq = Kqueue::IO.new
+    @to_close << kq
+    assert_equal kq, kq.to_io
+    assert_kind_of Integer, kq.fileno
+  end
+
   def test_bad_type
     kq = Kqueue::IO.new
     @to_close << kq
