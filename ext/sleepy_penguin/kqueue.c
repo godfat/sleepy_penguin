@@ -117,7 +117,8 @@ out:
  * kqueue descriptors are automatically invalidated across fork, so care
  * must be taken when forking.
  * Setting IO#autoclose=false is recommended for applications which fork
- * after kqueue creation.
+ * after kqueue creation.  Ruby 1.8 does not have IO#autoclose=, so using
+ * this class is not recommended under Ruby 1.8
  */
 static VALUE s_new(VALUE klass)
 {
@@ -321,6 +322,26 @@ static void changelist_prepare(struct kevent *events, VALUE changelist)
 /*
  * call-seq:
  *	kq_io.kevent([changelist[, nevents[, timeout]]]) { |ident,filter,flags,fflags,data,udata| ... }
+ *
+ * This is a wrapper around the kevent(2) system call to change and/or
+ * retrieve events from the underlying kqueue descriptor.
+ *
+ * +changelist+ may be nil, a single Kevent struct or an array of Kevent
+ * structs.  If +changelist+ is nil, no changes will be made to the
+ * underlying kqueue object.
+ *
+ * +nevents+ may be non-negative integer or nil.  If +nevents+ is zero or
+ * nil, no events are retrieved.  If +nevents+ is positive, a block must
+ * be passed to kevent for each event.
+ *
+ * +timeout+ is the numeric timeout in seconds to wait for +nevents+.
+ * If nil and +nevents+ is positive, kevent will sleep forever.
+ * +timeout+ may be in a floating point number if subsecond resolution
+ * is required.  If +nevents+ is nil or zero and +timeout+ is not specified,
+ * +timeout+ is implied to be zero.
+ *
+ * If event retrieval is desired, a block taking 6-elements (one for each
+ * field of the kevent struct) must be passed.
  */
 static VALUE sp_kevent(int argc, VALUE *argv, VALUE self)
 {
@@ -365,6 +386,12 @@ static VALUE sp_kevent(int argc, VALUE *argv, VALUE self)
 /* initialize constants in the SleepyPenguin::Ev namespace */
 static void init_ev(VALUE mSleepyPenguin)
 {
+	/*
+	 * Document-module: SleepyPenguin::Ev
+	 *
+	 * Constants in the SleepyPenguin::Ev namespace are for the +flags+
+	 * field in Kevent structs.
+	 */
 	mEv = rb_define_module_under(mSleepyPenguin, "Ev");
 
 	/* See EV_ADD in the kevent(2) man page */
@@ -402,6 +429,8 @@ static void init_ev(VALUE mSleepyPenguin)
 static void init_evfilt(VALUE mSleepyPenguin)
 {
 	/*
+	 * Document-module: SleepyPenguin::EvFilt
+	 *
 	 * Pre-defined system filters for Kqueue events.  Not all filters
 	 * are supported on all platforms.  Consult the kevent(2) man page
 	 * and source code for your operating system for more information.
@@ -464,7 +493,9 @@ static void init_evfilt(VALUE mSleepyPenguin)
 static void init_note(VALUE mSleepyPenguin)
 {
 	/*
-	 * data/hint flags/mask for EVFILT_USER and friends
+	 * Document-module: SleepyPenguin::Note
+	 *
+	 * Data/hint flags/masks for EVFILT_USER and friends in Kqueue
 	 * On input, the top two bits of fflags specifies how the lower
 	 * twenty four bits should be applied to the stored value of fflags.
 	 *
@@ -569,7 +600,11 @@ static void init_note(VALUE mSleepyPenguin)
 static void init_vq(VALUE mSleepyPenguin)
 {
 #ifdef VQ_NOTRESP
-	/* constants used by the EvFilt::FS filter */
+	/*
+	 * Document-module: SleepyPenguin::VQ
+	 *
+	 * Constants used by the EvFilt::FS filter in the Kqueue interfaces
+	 */
 	mVQ = rb_define_module_under(mSleepyPenguin, "VQ");
 
 	/* server down */
@@ -608,15 +643,6 @@ void sleepy_penguin_init_kqueue(void)
 	init_note(mSleepyPenguin);
 	init_vq(mSleepyPenguin);
 
-	/*
-	 * Document-class: SleepyPenguin::Kqueue
-	 *
-	 * The Kqueue class provides high-level access to kqueue(2)
-	 * functionality in FreeBSD and similar systems.
-	 * It provides fork and GC-safety for Ruby objects stored
-	 * within the IO object and may be passed as an argument to
-	 * IO.select.
-	 */
 	cKqueue = rb_define_class_under(mSleepyPenguin, "Kqueue", rb_cObject);
 
 	/*
@@ -626,7 +652,10 @@ void sleepy_penguin_init_kqueue(void)
 	 * GC-safety, so Ruby IO objects added via kevent must be retained
 	 * by the application until IO#close is called.
 	 *
-	 * Warning: this class is easy to misuse, do not rely on
+	 * Warning: this class is easy to misuse, be careful as failure
+	 * to preserve references objects passed as Kevent#udata may lead
+	 * to crashes in Ruby.  The high-level Kqueue class prevents these
+	 * crashes (but may still return invalid objects).
 	 */
 	cKqueue_IO = rb_define_class_under(cKqueue, "IO", rb_cIO);
 	rb_define_singleton_method(cKqueue_IO, "new", s_new, 0);

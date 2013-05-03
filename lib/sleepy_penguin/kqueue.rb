@@ -8,6 +8,10 @@ require 'thread'
 # Events registered to a Kqueue object cannot be shared across fork
 # due to the underlying implementation of kqueue in *BSDs.
 class SleepyPenguin::Kqueue
+
+  # Initialize a new Kqueue object, this allocates an underlying Kqueue::IO
+  # object and may fail if the system is out of file descriptors or
+  # kernel memory
   def initialize
     @io = SleepyPenguin::Kqueue::IO.new
     @mtx = Mutex.new
@@ -46,8 +50,11 @@ class SleepyPenguin::Kqueue
     @pid = $$
   end
 
-  # Users are responsible for ensuring udata objects remain visible to the
-  # Ruby GC.
+  # A high-level wrapper around Kqueue::IO#kevent
+  # Users are responsible for ensuring +udata+ objects remain visible to the
+  # Ruby GC, otherwise ObjectSpace._id2ref may return invalid objects.
+  # Unlike the low-level Kqueue::IO#kevent, the block given yields only
+  # a single Kevent struct, not a 6-element array.
   def kevent(changelist = nil, *args)
     @mtx.synchronize { __kq_check }
     if changelist
