@@ -1,7 +1,8 @@
 #!/bin/sh
 
 GVF=GIT-VERSION-FILE
-DEF_VER=v3.1.0.GIT
+DEF_VER=v3.2.0.GIT
+GVH=ext/sleepy_penguin/git_version.h
 
 LF='
 '
@@ -35,6 +36,12 @@ else
 	VC=unset
 fi
 test "$VN" = "$VC" || {
+	{
+		echo '#ifndef MY_GIT_VERSION'
+		echo '#define MY_GIT_VERSION "'$VN'"'
+		echo '#endif /* MY_GIT_VERSION */'
+	} >$GVH.tmp.$$
+	mv $GVH.tmp.$$ $GVH
 	echo >&2 "GIT_VERSION = $VN"
 	echo "GIT_VERSION = $VN" >$GVF
 }

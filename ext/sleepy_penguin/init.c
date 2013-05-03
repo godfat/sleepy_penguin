@@ -1,6 +1,8 @@
 #define _GNU_SOURCE
+#include <ruby.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include "git_version.h"
 #define L1_CACHE_LINE_MAX 128 /* largest I've seen (Pentium 4) */
 size_t rb_sp_l1_cache_line_size;
 
@@ -53,7 +55,13 @@ static size_t l1_cache_line_size_detect(void)
 
 void Init_sleepy_penguin_ext(void)
 {
+	VALUE mSleepyPenguin;
+
 	rb_sp_l1_cache_line_size = l1_cache_line_size_detect();
+
+	mSleepyPenguin = rb_define_module("SleepyPenguin");
+	rb_define_const(mSleepyPenguin, "SLEEPY_PENGUIN_VERSION",
+			rb_str_new2(MY_GIT_VERSION));
 
 	sleepy_penguin_init_kqueue();
 	sleepy_penguin_init_epoll();
