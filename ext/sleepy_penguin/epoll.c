@@ -1,4 +1,5 @@
 #include "sleepy_penguin.h"
+#include "clock_gettime.h"
 #ifdef HAVE_SYS_EPOLL_H
 #include <sys/epoll.h>
 #include <unistd.h>
@@ -14,7 +15,7 @@ static uint64_t now_ms(void)
 {
 	struct timespec now;
 
-	clock_gettime(CLOCK_MONOTONIC, &now);
+	CLOCK_GETTIME(&now);
 
 	return now.tv_sec * 1000 + (now.tv_nsec + 500000) / 1000000;
 }

@@ -1,4 +1,5 @@
 #include "sleepy_penguin.h"
+#include "clock_gettime.h"
 #ifdef HAVE_SYS_EVENT_H
 #include <sys/types.h>
 #include <sys/event.h>
@@ -196,7 +197,7 @@ kevent_resume_p(struct timespec *expire_at, struct kq_per_thread *kpt)
 	if (kpt->ts == NULL)
 		return 1;
 
-	clock_gettime(CLOCK_MONOTONIC, &now);
+	CLOCK_GETTIME(&now);
 	if (now.tv_sec > expire_at->tv_sec)
 		return 0;
 	if (now.tv_sec == expire_at->tv_sec && now.tv_nsec > expire_at->tv_nsec)
@@ -221,7 +222,7 @@ static VALUE do_kevent(struct kq_per_thread *kpt)
 	struct timespec expire_at;
 
 	if (kpt->ts) {
-		clock_gettime(CLOCK_MONOTONIC, &expire_at);
+		CLOCK_GETTIME(&expire_at);
 
 		expire_at.tv_sec += kpt->ts->tv_sec;
 		expire_at.tv_nsec += kpt->ts->tv_nsec;
