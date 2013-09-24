@@ -5,6 +5,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <time.h>
+#include "missing_clock_gettime.h"
 #include "missing_rb_thread_fd_close.h"
 #include "missing_rb_update_max_fd.h"
 #include "value2timespec.h"
